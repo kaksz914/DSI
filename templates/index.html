@@ -262,8 +262,19 @@
                     select.appendChild(opt);
                 });
                 select.style.display = 'inline-block';
-                document.getElementById('btnArmar').style.display = 'inline-block';
-                document.getElementById('status1').innerHTML = `Encontrada(s) ${data.interfaces.length} interface(s).`;
+                
+                // Adaptação Visual caso o Servidor seja Windows
+                if(data.os_type === 'windows') {
+                    document.getElementById('btnArmar').style.display = 'inline-block';
+                    document.getElementById('btnArmar').innerText = 'Iniciar Radar Passivo (Windows)';
+                    document.getElementById('status1').innerHTML = `Sistema NDIS (Windows) Detectado. Interface de Injeção Desabilitada.`;
+                    log("AVISO: Servidor backend operando em Windows. O ataque ativo está desabilitado pela Microsoft API.");
+                } else {
+                    document.getElementById('btnArmar').style.display = 'inline-block';
+                    document.getElementById('btnArmar').innerText = 'Armar Modo Monitor';
+                    document.getElementById('status1').innerHTML = `Encontrada(s) ${data.interfaces.length} interface(s) de núcleo Linux.`;
+                }
+                
                 log("Interfaces carregadas no dashboard.");
             } else {
                 document.getElementById('status1').innerHTML = "Nenhuma interface encontrada ou erro no servidor.";

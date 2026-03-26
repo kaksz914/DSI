@@ -24,7 +24,11 @@ def dashboard():
 def get_interfaces():
     stdout, stderr = run_command("iw dev | awk '$1==\"Interface\"{print $2}'")
     interfaces = stdout.split('\n') if stdout else []
-    return jsonify({"status": "success", "interfaces": [i for i in interfaces if i]})
+    return jsonify({
+        "status": "success",
+        "interfaces": [i for i in interfaces if i],
+        "os_type": "linux"
+    })
 
 @app.route('/api/start_monitor', methods=['POST'])
 def start_monitor():
