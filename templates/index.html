@@ -3,376 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DSI Cyberpunk Web Auditor</title>
-    <!-- Google Fonts: Orbitron & Roboto Mono for Cyberpunk feel -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <title>DSI COMMAND CENTER v3.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0b0b12;
-            --primary-color: #00ffcc;
-            --secondary-color: #ff00ff;
-            --warning-color: #ffcc00;
-            --danger-color: #ff3333;
-            --text-color: #e0e0e0;
-            --panel-bg: rgba(16, 20, 36, 0.85);
-            --border-color: rgba(0, 255, 204, 0.3);
+            --bg: #050508;
+            --primary: #00ffcc;
+            --secondary: #bc00ff;
+            --warning: #ffcc00;
+            --danger: #ff0033;
+            --text: #e0e0e0;
+            --panel: rgba(10, 12, 20, 0.95);
+            --border: rgba(0, 255, 204, 0.4);
         }
-        
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: var(--bg);
+            color: var(--text);
             font-family: 'Roboto Mono', monospace;
-            margin: 0;
-            padding: 20px;
-            background-image: 
-                linear-gradient(to right, rgba(0, 255, 204, 0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
-            background-size: 30px 30px;
+            margin: 0; padding: 20px;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #050508 100%);
         }
-
-        h1, h2, h3 {
-            font-family: 'Orbitron', sans-serif;
-            text-transform: uppercase;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            text-shadow: 0 0 10px var(--primary-color);
-            color: var(--primary-color);
-        }
-
+        h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; letter-spacing: 2px; margin: 10px 0; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+        .header h1 { font-size: 2.5em; color: var(--primary); text-shadow: 0 0 20px var(--primary); }
         .panel {
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
-            border-radius: 4px;
-            padding: 20px;
-            margin-bottom: 20px;
-            position: relative;
+            background: var(--panel);
+            border-left: 5px solid var(--primary);
+            border-right: 1px solid var(--border);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 20px; margin-bottom: 25px;
         }
-        
-        .panel::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 10px; height: 10px;
-            border-top: 2px solid var(--primary-color);
-            border-left: 2px solid var(--primary-color);
-        }
-
         .btn {
-            background: transparent;
-            color: var(--primary-color);
+            background: rgba(0, 255, 204, 0.1);
+            color: var(--primary);
             font-family: 'Orbitron', sans-serif;
-            border: 1px solid var(--primary-color);
-            padding: 10px 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            font-weight: bold;
-            box-shadow: inset 0 0 5px rgba(0,255,204,0.2);
-            margin: 5px;
+            border: 1px solid var(--primary);
+            padding: 12px 24px;
+            cursor: pointer; transition: all 0.2s;
+            text-transform: uppercase; font-size: 0.8em;
         }
-
-        .btn:hover:not(:disabled) {
-            background: var(--primary-color);
-            color: var(--bg-color);
-            box-shadow: 0 0 15px var(--primary-color);
-        }
-
-        .btn-danger {
-            color: var(--danger-color);
-            border-color: var(--danger-color);
-            box-shadow: inset 0 0 5px rgba(255,51,51,0.2);
-        }
+        .btn:hover { background: var(--primary); color: #000; box-shadow: 0 0 20px var(--primary); }
+        .btn-danger { border-color: var(--danger); color: var(--danger); }
+        .btn-danger:hover { background: var(--danger); color: #fff; box-shadow: 0 0 20px var(--danger); }
         
-        .btn-danger:hover:not(:disabled) {
-            background: var(--danger-color);
-            color: #fff;
-            box-shadow: 0 0 15px var(--danger-color);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            font-size: 0.9em;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        th {
-            color: var(--secondary-color);
-            font-family: 'Orbitron', sans-serif;
-        }
-
-        tr:hover {
-            background-color: rgba(0, 255, 204, 0.1);
-        }
-
-        .status-box {
-            font-family: 'Orbitron', sans-serif;
-            color: var(--warning-color);
-            margin-top: 10px;
-            font-size: 0.9em;
-            min-height: 20px;
-        }
-
-        .select-interface {
-            background: var(--bg-color);
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-            padding: 10px;
-            font-family: 'Roboto Mono', monospace;
-            margin-right: 10px;
-        }
-
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { color: var(--secondary); text-align: left; padding: 15px; border-bottom: 2px solid var(--secondary); font-size: 0.8em; }
+        td { padding: 15px; border-bottom: 1px solid #111; }
+        
         .console-output {
             background: #000;
-            color: #0f0;
-            padding: 15px;
-            border: 1px solid #333;
-            height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-size: 0.85em;
-            margin-top: 20px;
-        }
-        
-        .blinking {
-            animation: blinker 1s linear infinite;
-        }
-        
-        @keyframes blinker {
-            50% { opacity: 0; }
-        }
-        
-        /* Modal for Attack Choice */
-        #attackModal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
-        }
-        
-        .modal-content {
-            background: var(--panel-bg);
-            border: 2px solid var(--secondary-color);
-            width: 50%;
-            margin: 10% auto;
+            color: #00ff41;
             padding: 20px;
-            box-shadow: 0 0 30px rgba(255,0,255,0.3);
-            text-align: center;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #222;
+            font-size: 0.9em;
+            line-height: 1.4;
         }
-
-        .modal-content h3 { color: var(--secondary-color); }
+        .log-entry { margin-bottom: 4px; border-left: 3px solid transparent; padding-left: 10px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .log-time { color: #555; font-size: 0.8em; margin-right: 10px; }
+        .log-type-cmd { color: #ff00ff; border-color: #ff00ff; font-weight: bold; }
+        .log-type-info { color: #00ccff; border-color: #00ccff; }
+        .log-type-error { color: #ff3300; border-color: #ff3300; background: rgba(255,51,0,0.1); }
+        
+        .vendor-tag { background: #1a1a2e; border: 1px solid var(--secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.75em; color: var(--secondary); }
+        .select-interface { background: #000; color: var(--primary); border: 1px solid var(--primary); padding: 10px; font-family: inherit; }
+        
+        #attackModal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 1000; backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--panel); border: 2px solid var(--primary); width: 450px;
+            margin: 10% auto; padding: 30px; box-shadow: 0 0 50px var(--primary); text-align: center;
+        }
+        .blinking { animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>[ DSI WEB AUDITOR ]</h1>
-        <p>Sistema Tático C2 - Controle e Monitoramento de Espectro</p>
+        <h1>DSI COMMAND CENTER v3.0</h1>
+        <p style="color:var(--secondary); font-weight: bold; letter-spacing: 5px;">SISTEMA MAGISTRADO EXPERT</p>
     </div>
 
     <div class="panel" id="step1">
-        <h2>1. Interface do Kernel</h2>
-        <button class="btn" onclick="getInterfaces()">Escanear Interfaces</button>
-        <select id="interfaceSelect" class="select-interface" style="display:none;"></select>
-        <button class="btn" id="btnArmar" style="display:none;" onclick="armInterface()">Armar Modo Monitor</button>
-        <div id="status1" class="status-box"></div>
+        <h2>1. HARDWARE E CAMUFLAGEM</h2>
+        <div style="display:flex; gap:15px; align-items: center;">
+            <button class="btn" onclick="getInterfaces()">Sincronizar Placas</button>
+            <select id="interfaceSelect" class="select-interface" style="display:none;"></select>
+            <button class="btn" id="btnArmar" style="display:none;" onclick="armInterface()">Armar Injeção de Pacotes</button>
+        </div>
+        <div id="status1" style="margin-top:10px; font-size: 0.9em;"></div>
     </div>
 
     <div class="panel" id="step2" style="display:none;">
-        <h2>2. Radar de Espectro (Reconhecimento)</h2>
-        <button class="btn" id="btnScan" onclick="startScan()">Ativar Radar (Scan)</button>
-        <button class="btn btn-danger" id="btnStopScan" onclick="stopScan()" style="display:none;">Parar Radar</button>
-        <div id="status2" class="status-box"></div>
+        <h2>2. RADAR TÁTICO DE ESPECTRO</h2>
+        <div style="margin-bottom:15px;">
+            <button class="btn" id="btnScan" onclick="startScan()">Ativar Varredura Ativa</button>
+            <button class="btn btn-danger" id="btnStopScan" onclick="stopScan()" style="display:none;">Parar Radar</button>
+            <span id="status2" style="margin-left:20px; font-size: 0.8em; color:var(--warning);"></span>
+        </div>
         
         <table id="networksTable">
             <thead>
                 <tr>
-                    <th>Sinal</th>
-                    <th>ESSID (Nome)</th>
+                    <th>SIGNAL</th>
+                    <th>VENDEDOR</th>
+                    <th>ESSID (NOME)</th>
                     <th>BSSID (MAC)</th>
-                    <th>Canal</th>
-                    <th>Criptografia</th>
-                    <th>Ação</th>
+                    <th>CH</th>
+                    <th>ENC</th>
+                    <th>STATUS</th>
                 </tr>
             </thead>
-            <tbody>
-                <!-- Rows will be injected here -->
-            </tbody>
+            <tbody></tbody>
         </table>
     </div>
 
-    <div class="panel" id="step3">
-        <h2>3. Terminal C2 Global (Console Log)</h2>
-        <div class="console-output" id="consoleLog">Iniciando conexão com o Kernel...</div>
-        <div style="margin-top:10px;">
-            <button class="btn" onclick="openReport()">Gerar Relatório HTML</button>
-            <button class="btn btn-danger" onclick="restaurarSistema()">Abortar Tudo / Restaurar Rede Normal</button>
+    <div class="panel">
+        <h2>3. TERMINAL C2 GLOBAL (LOGS VIVOS)</h2>
+        <div class="console-output" id="consoleLog">
+            <div class="log-entry log-type-info"><span class="log-time">[SISTEMA]</span> Aguardando inicialização do link Magistrado...</div>
+        </div>
+        <div style="margin-top:20px; display:flex; gap:15px;">
+            <button class="btn" onclick="window.open('/api/report', '_blank')">Gerar Relatório HTML</button>
+            <button class="btn btn-danger" onclick="restaurarSistema()">Abortar e Restaurar Rede</button>
         </div>
     </div>
 
-    <!-- Attack Modal -->
     <div id="attackModal">
         <div class="modal-content">
-            <h3 id="modalTargetName">ALVO SELECIONADO</h3>
-            <p>Selecione o vetor de ataque (Ogiva):</p>
-            <div style="display:flex; justify-content: space-around; margin-top:20px;">
-                <button class="btn" onclick="launchAttack('handshake')">1. Deauth Clássico (Exige Clientes)</button>
-                <button class="btn btn-danger" onclick="launchAttack('pmkid')">2. PMKID Stealth (Clientless)</button>
+            <h3 id="modalTargetName">ALVO TRAVADO</h3>
+            <p style="font-size:0.9em; margin-bottom:25px;">Selecione o vetor de infiltração tática:</p>
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <button class="btn" onclick="launchAttack('pmkid')">Vetor A: PMKID Stealth (Recomendado)</button>
+                <button class="btn btn-danger" onclick="launchAttack('handshake')">Vetor B: Deauth Massivo (MDK4)</button>
+                <button class="btn" style="border-color:#444; color:#aaa; margin-top:10px;" onclick="document.getElementById('attackModal').style.display='none'">Cancelar</button>
             </div>
-            <button class="btn" style="margin-top:30px; border-color:gray; color:gray;" onclick="document.getElementById('attackModal').style.display='none'">Cancelar</button>
         </div>
     </div>
 
     <script>
-        let currentTarget = null;
+        let lastLogIdx = 0;
         let scanInterval = null;
-        let logInterval = null;
+        let currentTarget = null;
 
-        window.onload = () => {
-            // Inicia o poller de logs global
-            logInterval = setInterval(fetchLogs, 2000);
-        };
-
-        function log(msg) {
-            // Log local imediato (será sobrescrito pelo fetchLogs se for vindo do backend)
-            const consoleDiv = document.getElementById('consoleLog');
-            consoleDiv.innerHTML += `\n[UI] ${msg}`;
-            consoleDiv.scrollTop = consoleDiv.scrollHeight;
-        }
+        // Auto-refresh de logs a cada 1.5 segundos
+        setInterval(fetchLogs, 1500);
 
         async function fetchLogs() {
             try {
-                const res = await fetch('/api/logs');
+                const res = await fetch(`/api/logs?last=${lastLogIdx}`);
                 const data = await res.json();
-                if(data.status === 'success') {
+                if(data.status === 'success' && data.logs.length > 0) {
                     const consoleDiv = document.getElementById('consoleLog');
-                    consoleDiv.innerText = data.logs.join('\n');
+                    data.logs.forEach(log => {
+                        const entry = document.createElement('div');
+                        entry.className = `log-entry log-type-${log.type}`;
+                        entry.innerHTML = `<span class="log-time">[${log.time}]</span> ${log.cmd ? '[CMD] ' : ''}${log.msg}`;
+                        consoleDiv.appendChild(entry);
+                    });
+                    lastLogIdx = data.next_idx;
                     consoleDiv.scrollTop = consoleDiv.scrollHeight;
                 }
             } catch(e) {}
         }
 
-        function openReport() {
-            window.open('/api/report', '_blank');
-        }
-
         async function getInterfaces() {
-            log("Solicitando interfaces via API...");
-            document.getElementById('status1').innerHTML = "<span class='blinking'>Analisando hardware...</span>";
             const res = await fetch('/api/interfaces');
             const data = await res.json();
-            
             if(data.status === 'success' && data.interfaces.length > 0) {
                 const select = document.getElementById('interfaceSelect');
                 select.innerHTML = '';
                 data.interfaces.forEach(iface => {
-                    let opt = document.createElement('option');
-                    opt.value = iface;
-                    opt.innerHTML = iface;
+                    let opt = document.createElement('option'); opt.value = iface; opt.innerText = iface;
                     select.appendChild(opt);
                 });
                 select.style.display = 'inline-block';
-                
-                // Adaptação Visual caso o Servidor seja Windows
-                if(data.os_type === 'windows') {
-                    document.getElementById('btnArmar').style.display = 'inline-block';
-                    document.getElementById('btnArmar').innerText = 'Iniciar Radar Passivo (Windows)';
-                    document.getElementById('status1').innerHTML = `Sistema NDIS (Windows) Detectado. Interface de Injeção Desabilitada.`;
-                    log("AVISO: Servidor backend operando em Windows. O ataque ativo está desabilitado pela Microsoft API.");
-                } else {
-                    document.getElementById('btnArmar').style.display = 'inline-block';
-                    document.getElementById('btnArmar').innerText = 'Armar Modo Monitor';
-                    document.getElementById('status1').innerHTML = `Encontrada(s) ${data.interfaces.length} interface(s) de núcleo Linux.`;
-                }
-                
-                log("Interfaces carregadas no dashboard.");
-            } else {
-                document.getElementById('status1').innerHTML = "Nenhuma interface encontrada ou erro no servidor.";
-                log("ERRO: Nenhuma interface detectada.");
+                document.getElementById('btnArmar').style.display = 'inline-block';
             }
         }
 
         async function armInterface() {
             const iface = document.getElementById('interfaceSelect').value;
-            log(`Armando interface ${iface} para modo stealth... Aguarde.`);
-            document.getElementById('status1').innerHTML = "<span class='blinking'>Isolando Kernel e aplicando driver monitor...</span>";
-            
+            document.getElementById('status1').innerHTML = "<span class='blinking' style='color:var(--warning)'>ARMANDO HARDWARE...</span>";
             const res = await fetch('/api/start_monitor', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ interface: iface })
             });
             const data = await res.json();
-            
             if(data.status === 'success') {
-                document.getElementById('status1').innerHTML = `Modo Monitor ATIVADO em: ${data.monitor_interface}`;
-                log(`Sucesso absoluto: Interface armada -> ${data.monitor_interface}`);
+                document.getElementById('status1').innerHTML = `<span style="color:var(--primary)">[ATIVO] ${data.monitor_interface}</span>`;
                 document.getElementById('step2').style.display = 'block';
-            } else {
-                document.getElementById('status1').innerHTML = "Falha ao armar placa. Verifique os logs no C2.";
-                log(`ERRO: ${data.message}`);
             }
         }
 
         async function startScan() {
-            log("Acionando Radar Airodump-ng...");
             document.getElementById('btnScan').style.display = 'none';
             document.getElementById('btnStopScan').style.display = 'inline-block';
-            document.getElementById('status2').innerHTML = "<span class='blinking'>Varrendo o espectro Wi-Fi (Atualizando a cada 3s)...</span>";
-            
+            document.getElementById('status2').innerText = "RADAR ATIVO - ESCANEANDO FREQUÊNCIAS...";
             await fetch('/api/start_scan', { method: 'POST' });
-            
-            // Inicia o loop para buscar redes e atualizar a tabela a cada 3 segundos
             scanInterval = setInterval(fetchNetworks, 3000);
         }
 
         async function stopScan() {
-            log("Desligando Radar...");
             clearInterval(scanInterval);
             document.getElementById('btnScan').style.display = 'inline-block';
             document.getElementById('btnStopScan').style.display = 'none';
-            document.getElementById('status2').innerHTML = "Radar pausado. Alvos congelados na tela.";
-            
+            document.getElementById('status2').innerText = "RADAR EM STANDBY.";
             await fetch('/api/stop_scan', { method: 'POST' });
         }
 
         async function fetchNetworks() {
             const res = await fetch('/api/get_networks');
             const data = await res.json();
-            
             if(data.status === 'success') {
                 const tbody = document.querySelector('#networksTable tbody');
                 tbody.innerHTML = '';
-                
                 data.networks.forEach(net => {
-                    // Filtrar sinal negativo
                     let pwr = parseInt(net.signal);
-                    let color = (pwr > -70) ? "var(--primary-color)" : (pwr > -85 ? "var(--warning-color)" : "var(--danger-color)");
-                    
+                    let color = (pwr > -70) ? "var(--primary)" : (pwr > -85 ? "var(--warning)" : "var(--danger)");
                     let tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td style="color: ${color}; font-weight: bold;">${net.signal}</td>
-                        <td style="font-weight:bold; color:#fff;">${net.essid}</td>
-                        <td>${net.bssid}</td>
+                        <td style="color:${color}; font-weight:bold;">${net.signal}</td>
+                        <td><span class="vendor-tag">${net.vendor}</span></td>
+                        <td style="font-weight:bold;">${net.essid}</td>
+                        <td style="font-size:0.8em; opacity:0.6;">${net.bssid}</td>
                         <td>${net.channel}</td>
                         <td>${net.privacy}</td>
-                        <td><button class="btn" style="padding: 5px 10px; font-size: 0.8em;" onclick="openAttackModal('${net.bssid}', '${net.essid}', '${net.channel}')">MIRAR</button></td>
+                        <td><button class="btn" style="padding: 5px 10px; font-size: 0.7em;" onclick="openAttackModal('${net.bssid}', '${net.essid}', '${net.channel}')">MIRAR</button></td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -381,40 +246,24 @@
 
         function openAttackModal(bssid, essid, channel) {
             currentTarget = {bssid, essid, channel};
-            document.getElementById('modalTargetName').innerText = `ALVO: ${essid} (${bssid})`;
+            document.getElementById('modalTargetName').innerText = `ALVO TRAVADO: ${essid}`;
             document.getElementById('attackModal').style.display = 'block';
         }
 
         async function launchAttack(type) {
             document.getElementById('attackModal').style.display = 'none';
-            await stopScan(); // Importante: Parar o radar antes de atacar (para o canal)
-            
+            await stopScan();
             currentTarget.attack_type = type;
-            log(`Iniciando Ataque (${type.toUpperCase()}) contra ${currentTarget.essid}... Isto rodará no backend.`);
-            log(`Por favor, acompanhe o terminal do backend Python para quebra de senhas complexas.`);
-            
-            const res = await fetch('/api/attack', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+            await fetch('/api/attack', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(currentTarget)
             });
-            const data = await res.json();
-            
-            if(data.status === 'success') {
-                log(`[!] ATAQUE FINALIZADO: Arquivo capturado/gerado: ${data.cap_file}`);
-                log(`[!] O Hashcat/Aircrack foi engatilhado no backend da máquina (Cheque o terminal do Linux para Senhas).`);
-            } else {
-                log(`[ERRO NO ATAQUE] ${data.message}`);
-            }
         }
 
         async function restaurarSistema() {
-            log("Enviando sinal de aborto global e reiniciando o NetworkManager...");
             if(scanInterval) clearInterval(scanInterval);
-            
-            const res = await fetch('/api/restore', { method: 'POST' });
-            const data = await res.json();
-            log(data.message);
+            await fetch('/api/restore', { method: 'POST' });
+            location.reload();
         }
     </script>
 </body>
