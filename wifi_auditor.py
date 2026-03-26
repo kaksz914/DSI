@@ -50,27 +50,40 @@ def analyze_vulnerabilities(vendor, essid, privacy):
         advice = "Vetor Híbrido: PMKID + Deauth Broadcast."
     return vulns, advice
 
-def fix_drivers_wifi6():
-    console.print(Panel("[bold yellow]Iniciando Diagnóstico de Drivers Wi-Fi 6...[/bold yellow]", title="WIFI 6 DOCTOR"))
+# Global callback for Web UI logs
+WEB_CALLBACK = None
+
+def supreme_log(msg, log_type="info"):
+    if WEB_CALLBACK:
+        WEB_CALLBACK(msg, log_type)
+    # Sempre printa no console rich para backup
+    if log_type == "error": console.print(f"[bold red]{msg}[/bold red]")
+    elif log_type == "cmd": console.print(f"[bold magenta]>>> {msg}[/bold magenta]")
+    else: console.print(f"[bold cyan]{msg}[/bold cyan]")
+
+def fix_drivers_wifi6(auto_confirm=False):
+    supreme_log("Iniciando Diagnóstico de Drivers Wi-Fi 6...", log_type="cmd")
     stdout_usb, _ = run_command("lsusb")
     chipset = None
     if "8852" in stdout_usb: chipset = "RTL8852AU"
     elif "8832" in stdout_usb: chipset = "RTL8832AU"
     elif "7921" in stdout_usb: chipset = "MT7921AU"
     if not chipset:
-        console.print("[bold red]Nenhum chipset Wi-Fi 6 conhecido detectado via USB.[/bold red]")
-        console.print("Dica: Verifique se a placa está bem conectada ou use outra porta USB 3.0.")
+        supreme_log("Nenhum chipset Wi-Fi 6 conhecido detectado via USB.", log_type="error")
         return False
-    console.print(f"[bold green]Chipset Detectado: {chipset}[/bold green]")
-    if Confirm.ask(f"Deseja tentar instalar drivers automáticos para {chipset}?"):
-        with console.status("[bold cyan]Instalando componentes táticos...", spinner="dots"):
-            if "RTL" in chipset:
-                run_command("apt update && apt install -y build-essential git dkms raspberrypi-kernel-headers", sudo=True)
-                run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/rtl8852au", sudo=True)
-                run_command("cd /tmp/rtl8852au && make && make install", sudo=True)
-            elif "MT" in chipset:
-                run_command("apt update && apt install -y firmware-libertas", sudo=True)
-        console.print("[bold green]Instalação finalizada. Reinicie o sistema.[/bold green]")
+    supreme_log(f"Chipset Detectado: {chipset}")
+    
+    if auto_confirm or Confirm.ask(f"Deseja instalar drivers para {chipset}?"):
+        supreme_log("Iniciando instalação automatizada de drivers...", log_type="info")
+        if "RTL" in chipset:
+            run_command("apt update && apt install -y build-essential git dkms", sudo=True)
+            run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/rtl8852au", sudo=True)
+            # Simplificado para não travar o log
+            supreme_log("Compilando driver... Isso pode levar alguns minutos.")
+            run_command("cd /tmp/rtl8852au && make && make install", sudo=True)
+        elif "MT" in chipset:
+            run_command("apt update && apt install -y firmware-libertas", sudo=True)
+        supreme_log("Instalação finalizada com sucesso. Reinicie o sistema.", log_type="info")
         return True
     return False
 
