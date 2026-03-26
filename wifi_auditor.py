@@ -281,7 +281,7 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
         
     dump_cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng_file} --filterlist_ap={filtro_file} --filtermode=2 --enable_status=1"
     
-    with Progress(SpinnerColumn("alien"), TextColumn("[bold red]{task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
+    with Progress(SpinnerColumn("dots"), TextColumn("[bold red]{task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
         task = progress.add_task("Bomba Lógica Enviada. Aguardando falha criptográfica do Roteador...", total=30)
         proc = subprocess.Popen(dump_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         for _ in range(30):
