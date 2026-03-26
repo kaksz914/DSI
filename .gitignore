@@ -1,0 +1,25 @@
+# Ignorar arquivos temporários e logs da ferramenta aircrack-ng/airmon-ng
+*.cap
+*.csv
+*.netxml
+*.kismet.csv
+*.kismet.netxml
+
+# Ignorar banco de dados de logs para não expor as redes identificadas pelo usuário (Privacidade do Tester)
+redes_identificadas_log.json
+redes_identificadas_log*.json
+
+# Ignorar o ambiente Python e caches
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Ignorar arquivos do sistema operacional (Mac/Windows/Linux)
+.DS_Store
+Thumbs.db
+
+# Ignorar logs da versão Windows
+redes_identificadas_windows_log.json
