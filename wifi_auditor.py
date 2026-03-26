@@ -148,11 +148,23 @@ def set_managed_mode(interface):
     run_command("systemctl start wpa_supplicant NetworkManager", sudo=True)
     run_command("nmcli networking on", sudo=True)
 
+def boost_signal(interface):
+    supreme_log(f"Potencializando rádio da interface {interface} (Signal Booster)...", log_type="cmd")
+    # Muda região para Bolívia para desbloquear limites de potência do Kernel
+    run_command("iw reg set BO", sudo=True)
+    run_command(f"ip link set {interface} down", sudo=True)
+    # Tenta elevar a potência de transmissão (TxPower) para 30dBm (limite expert)
+    run_command(f"iw dev {interface} set txpower fixed 3000", sudo=True)
+    run_command(f"ip link set {interface} up", sudo=True)
+    supreme_log("Potência de rádio elevada ao máximo e varredura de 5GHz habilitada.")
+
 def scan_networks(monitor_interface):
-    supreme_log(f"RADAR MAGISTRADO ATIVO. Escaneando ambiente...", log_type="cmd")
+    boost_signal(monitor_interface)
+    supreme_log(f"RADAR MAGISTRADO ATIVO (2.4GHz + 5GHz). Escaneando...", log_type="cmd")
     output_prefix = "scan_results"
     run_command(f"rm -f {output_prefix}-01.*")
-    try: subprocess.run(f"sudo airodump-ng --output-format csv -w {output_prefix} {monitor_interface}", shell=True)
+    # Adicionado --band abg para capturar redes de 5GHz (comum em Starlink e Wi-Fi 6)
+    try: subprocess.run(f"sudo airodump-ng --band abg --output-format csv -w {output_prefix} {monitor_interface}", shell=True)
     except KeyboardInterrupt: pass
     networks = []
     csv_file = f"{output_prefix}-01.csv"

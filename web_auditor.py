@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, jsonify
 
 # Importa o núcleo
 import wifi_auditor
-from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack
+from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal
 from dsi_sniffer import DSISniffer, spoof, restore_arp
 
 app = Flask(__name__)
@@ -64,10 +64,15 @@ def start_monitor():
 @app.route('/api/start_scan', methods=['POST'])
 def start_scan():
     global SCAN_PROCESS, CURRENT_MONITOR_IFACE
-    if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error"}), 400
-    add_log("Iniciando varredura ativa...", log_type="cmd", is_command=True)
+    if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error", "message": "Não armado."}), 400
+    
+    # Potencializa rádio e habilita 5GHz antes de escanear
+    boost_signal(CURRENT_MONITOR_IFACE)
+    add_log("Radar Dual-Band (2.4GHz + 5GHz) ACIONADO com Ganho de Sinal.", log_type="cmd", is_command=True)
+    
     run_command(f"rm -f {CSV_PREFIX}-01.*")
-    cmd = f"airodump-ng --output-format csv -w {CSV_PREFIX} --update 1 {CURRENT_MONITOR_IFACE}"
+    # --band abg habilita varredura em todas as frequências (A, B e G)
+    cmd = f"airodump-ng --band abg --output-format csv -w {CSV_PREFIX} --update 1 {CURRENT_MONITOR_IFACE}"
     SCAN_PROCESS = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return jsonify({"status": "success"})
 
