@@ -14,7 +14,7 @@ try:
     from rich.table import Table
     from rich.panel import Panel
     from rich.prompt import Prompt, IntPrompt, Confirm
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskID
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskID, TimeRemainingColumn
     from rich.text import Text
     from rich import print as rprint
 except ImportError:
