@@ -219,8 +219,11 @@
 
     <div class="panel" id="step3">
         <h2>3. Terminal C2 Global (Console Log)</h2>
-        <div class="console-output" id="consoleLog">Aguardando comandos...</div>
-        <button class="btn btn-danger" onclick="restaurarSistema()">Abortar Tudo / Restaurar Rede Normal</button>
+        <div class="console-output" id="consoleLog">Iniciando conexão com o Kernel...</div>
+        <div style="margin-top:10px;">
+            <button class="btn" onclick="openReport()">Gerar Relatório HTML</button>
+            <button class="btn btn-danger" onclick="restaurarSistema()">Abortar Tudo / Restaurar Rede Normal</button>
+        </div>
     </div>
 
     <!-- Attack Modal -->
@@ -239,11 +242,34 @@
     <script>
         let currentTarget = null;
         let scanInterval = null;
+        let logInterval = null;
+
+        window.onload = () => {
+            // Inicia o poller de logs global
+            logInterval = setInterval(fetchLogs, 2000);
+        };
 
         function log(msg) {
+            // Log local imediato (será sobrescrito pelo fetchLogs se for vindo do backend)
             const consoleDiv = document.getElementById('consoleLog');
-            consoleDiv.innerHTML += `\n[${new Date().toLocaleTimeString()}] ${msg}`;
+            consoleDiv.innerHTML += `\n[UI] ${msg}`;
             consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                if(data.status === 'success') {
+                    const consoleDiv = document.getElementById('consoleLog');
+                    consoleDiv.innerText = data.logs.join('\n');
+                    consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                }
+            } catch(e) {}
+        }
+
+        function openReport() {
+            window.open('/api/report', '_blank');
         }
 
         async function getInterfaces() {

