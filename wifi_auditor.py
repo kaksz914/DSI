@@ -128,11 +128,18 @@ def get_wifi_interface():
         return None
 
 def set_monitor_mode(interface):
+    # Verificação inteligente: Se já estiver em modo monitor, não faz nada
+    stdout_check, _ = run_command(f"iw dev {interface} info")
+    if stdout_check and "type monitor" in stdout_check:
+        console.print(f"[bold green] [✔] Interface {interface} já está em Modo Monitor. Pulando preparação.[/bold green]")
+        return interface
+
     console.print(f"\n[bold yellow][PHD LEVEL][/bold yellow] Isolando kernel e armando a interface [bold cyan]{interface}[/bold cyan]...")
     with console.status("[bold red]Desativando bloqueios (rfkill) e processos conflitantes...", spinner="bouncingBar"):
         run_command("rfkill unblock all", sudo=True)
         run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
         run_command("airmon-ng check kill", sudo=True)
+        # Limpa interfaces virtuais antigas que podem estar presas
         run_command("iw dev | grep mon | awk '{print $2}' | xargs -I {} iw dev {} del", sudo=True)
 
     with console.status("[bold cyan]Injetando driver de Monitoramento...", spinner="bouncingBar"):
@@ -160,16 +167,33 @@ def set_monitor_mode(interface):
          run_command(f"iw dev {interface} set type monitor", sudo=True)
          run_command(f"ip link set {interface} up", sudo=True)
          stdout_iw, _ = run_command(f"iw dev {interface} info")
-         if "type monitor" in stdout_iw:
+         if stdout_iw and "type monitor" in stdout_iw:
              console.print(f"[bold green] [✔] Sucesso! Interface forçada para modo monitor: {interface}[/bold green]")
              return interface
          return None
 
 def set_managed_mode(interface):
     console.print(f"\n[bold blue]>>> Restaurando o Sistema para Estado Civil...[/bold blue]")
-    with console.status("[bold yellow]Desarmando placa e reiniciando NetworkManager...", spinner="dots2"):
+    with console.status("[bold yellow]Desarmando placa e reiniciando serviços de rede críticos...", spinner="dots2"):
+        # Garante a remoção do modo monitor
         run_command(f"airmon-ng stop {interface}", sudo=True)
+        
+        # Tenta resetar a interface via comandos de baixo nível para garantir
+        run_command(f"ip link set {interface} down", sudo=True)
+        run_command(f"iw dev {interface} set type managed", sudo=True)
+        run_command(f"ip link set {interface} up", sudo=True)
+        
+        # Reativa os bloqueios de rádio e os serviços na ordem correta
+        run_command("rfkill unblock all", sudo=True)
+        run_command("systemctl start wpa_supplicant", sudo=True)
+        run_command("systemctl start NetworkManager", sudo=True)
         run_command("systemctl restart NetworkManager", sudo=True)
+        
+        # Força o NetworkManager a gerenciar as interfaces novamente
+        run_command("nmcli networking off", sudo=True)
+        time.sleep(1)
+        run_command("nmcli networking on", sudo=True)
+        
     console.print("[bold green] [✔] Interface devolvida ao modo gerenciado. Rede normal restabelecida.[/bold green]")
 
 def scan_networks(monitor_interface):
