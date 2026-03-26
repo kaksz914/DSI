@@ -89,7 +89,7 @@
 
     <div class="header">
         <h1>DSI COMMAND CENTER v3.0</h1>
-        <p style="color:var(--secondary); font-weight: bold; letter-spacing: 5px;">SISTEMA MAGISTRADO EXPERT</p>
+        <p style="color:var(--secondary); font-weight: bold; letter-spacing: 5px;">SISTEMA GRÃO-MESTRE SUPREMO</p>
     </div>
 
     <div class="panel" id="step1">
@@ -129,11 +129,11 @@
     <div class="panel">
         <h2>3. TERMINAL C2 GLOBAL (LOGS VIVOS)</h2>
         <div class="console-output" id="consoleLog">
-            <div class="log-entry log-type-info"><span class="log-time">[SISTEMA]</span> Aguardando inicialização do link Magistrado...</div>
+            <div class="log-entry log-type-info"><span class="log-time">[SISTEMA]</span> Aguardando inicialização do link Supremo...</div>
         </div>
         <div style="margin-top:20px; display:flex; gap:15px;">
-            <button class="btn" onclick="window.open('/api/report', '_blank')">Gerar Relatório HTML</button>
-            <button class="btn btn-danger" onclick="restaurarSistema()">Abortar e Restaurar Rede</button>
+            <button class="btn" onclick="window.open('/api/report', '_blank')">Extrair Relatório Magistrado</button>
+            <button class="btn btn-danger" onclick="restaurarSistema()">Abortar Tudo & Limpar Rastros</button>
         </div>
     </div>
 
@@ -142,9 +142,10 @@
             <h3 id="modalTargetName">ALVO TRAVADO</h3>
             <p style="font-size:0.9em; margin-bottom:25px;">Selecione o vetor de infiltração tática:</p>
             <div style="display:flex; flex-direction:column; gap:15px;">
-                <button class="btn" onclick="launchAttack('pmkid')">Vetor A: PMKID Stealth (Recomendado)</button>
-                <button class="btn btn-danger" onclick="launchAttack('handshake')">Vetor B: Deauth Massivo (MDK4)</button>
-                <button class="btn" style="border-color:#444; color:#aaa; margin-top:10px;" onclick="document.getElementById('attackModal').style.display='none'">Cancelar</button>
+                <button class="btn" onclick="launchAttack('pmkid')">Vetor A: PMKID Stealth (Clientless)</button>
+                <button class="btn" style="border-color:var(--secondary); color:var(--secondary);" onclick="launchAttack('wps')">Vetor B: WPS Pixie-Dust (Grão-Mestre)</button>
+                <button class="btn btn-danger" onclick="launchAttack('handshake')">Vetor C: Injeção Deauth (MDK4 Massivo)</button>
+                <button class="btn" style="border-color:#444; color:#aaa; margin-top:10px;" onclick="document.getElementById('attackModal').style.display='none'">Abortar Alvo</button>
             </div>
         </div>
     </div>
@@ -154,7 +155,6 @@
         let scanInterval = null;
         let currentTarget = null;
 
-        // Auto-refresh de logs a cada 1.5 segundos
         setInterval(fetchLogs, 1500);
 
         async function fetchLogs() {

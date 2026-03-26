@@ -15,9 +15,9 @@ if [ "$EUID" -ne 0 ]; then
   exec sudo "$0" "$@"
 fi
 
-# Instala a dependência do Flask Web Server (se não existir)
-echo -e "${YELLOW}[*] Verificando motor Web (Flask)...${NC}"
-python3 -c "import flask" 2>/dev/null || (echo -e "${GREEN}[+] Baixando servidor Web Flask...${NC}" && apt update && apt install -y python3-flask)
+# Instala as dependências de sistema para o Nível Grão-Mestre
+echo -e "${YELLOW}[*] Verificando Arsenal Supremo (MDK4, Reaver, Macchanger)...${NC}"
+dpkg -s mdk4 macchanger reaver python3-flask python3-rich >/dev/null 2>&1 || (echo -e "${GREEN}[+] Baixando componentes táticos ausentes...${NC}" && apt update && apt install -y mdk4 macchanger reaver python3-flask python3-rich)
 
 # Mata qualquer processo airodump antigo que tenha ficado zumbi
 killall airodump-ng 2>/dev/null
