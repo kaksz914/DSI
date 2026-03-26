@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSI Cyberpunk Web Auditor</title>
+    <!-- Google Fonts: Orbitron & Roboto Mono for Cyberpunk feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0b12;
+            --primary-color: #00ffcc;
+            --secondary-color: #ff00ff;
+            --warning-color: #ffcc00;
+            --danger-color: #ff3333;
+            --text-color: #e0e0e0;
+            --panel-bg: rgba(16, 20, 36, 0.85);
+            --border-color: rgba(0, 255, 204, 0.3);
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Roboto Mono', monospace;
+            margin: 0;
+            padding: 20px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 255, 204, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 10px; height: 10px;
+            border-top: 2px solid var(--primary-color);
+            border-left: 2px solid var(--primary-color);
+        }
+
+        .btn {
+            background: transparent;
+            color: var(--primary-color);
+            font-family: 'Orbitron', sans-serif;
+            border: 1px solid var(--primary-color);
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: inset 0 0 5px rgba(0,255,204,0.2);
+            margin: 5px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--primary-color);
+        }
+
+        .btn-danger {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
+            box-shadow: inset 0 0 5px rgba(255,51,51,0.2);
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: var(--danger-color);
+            color: #fff;
+            box-shadow: 0 0 15px var(--danger-color);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--secondary-color);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        tr:hover {
+            background-color: rgba(0, 255, 204, 0.1);
+        }
+
+        .status-box {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--warning-color);
+            margin-top: 10px;
+            font-size: 0.9em;
+            min-height: 20px;
+        }
+
+        .select-interface {
+            background: var(--bg-color);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            padding: 10px;
+            font-family: 'Roboto Mono', monospace;
+            margin-right: 10px;
+        }
+
+        .console-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border: 1px solid #333;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.85em;
+            margin-top: 20px;
+        }
+        
+        .blinking {
+            animation: blinker 1s linear infinite;
+        }
+        
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+        
+        /* Modal for Attack Choice */
+        #attackModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: var(--panel-bg);
+            border: 2px solid var(--secondary-color);
+            width: 50%;
+            margin: 10% auto;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(255,0,255,0.3);
+            text-align: center;
+        }
+
+        .modal-content h3 { color: var(--secondary-color); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>[ DSI WEB AUDITOR ]</h1>
+        <p>Sistema Tático C2 - Controle e Monitoramento de Espectro</p>
+    </div>
+
+    <div class="panel" id="step1">
+        <h2>1. Interface do Kernel</h2>
+        <button class="btn" onclick="getInterfaces()">Escanear Interfaces</button>
+        <select id="interfaceSelect" class="select-interface" style="display:none;"></select>
+        <button class="btn" id="btnArmar" style="display:none;" onclick="armInterface()">Armar Modo Monitor</button>
+        <div id="status1" class="status-box"></div>
+    </div>
+
+    <div class="panel" id="step2" style="display:none;">
+        <h2>2. Radar de Espectro (Reconhecimento)</h2>
+        <button class="btn" id="btnScan" onclick="startScan()">Ativar Radar (Scan)</button>
+        <button class="btn btn-danger" id="btnStopScan" onclick="stopScan()" style="display:none;">Parar Radar</button>
+        <div id="status2" class="status-box"></div>
+        
+        <table id="networksTable">
+            <thead>
+                <tr>
+                    <th>Sinal</th>
+                    <th>ESSID (Nome)</th>
+                    <th>BSSID (MAC)</th>
+                    <th>Canal</th>
+                    <th>Criptografia</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be injected here -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="panel" id="step3">
+        <h2>3. Terminal C2 Global (Console Log)</h2>
+        <div class="console-output" id="consoleLog">Aguardando comandos...</div>
+        <button class="btn btn-danger" onclick="restaurarSistema()">Abortar Tudo / Restaurar Rede Normal</button>
+    </div>
+
+    <!-- Attack Modal -->
+    <div id="attackModal">
+        <div class="modal-content">
+            <h3 id="modalTargetName">ALVO SELECIONADO</h3>
+            <p>Selecione o vetor de ataque (Ogiva):</p>
+            <div style="display:flex; justify-content: space-around; margin-top:20px;">
+                <button class="btn" onclick="launchAttack('handshake')">1. Deauth Clássico (Exige Clientes)</button>
+                <button class="btn btn-danger" onclick="launchAttack('pmkid')">2. PMKID Stealth (Clientless)</button>
+            </div>
+            <button class="btn" style="margin-top:30px; border-color:gray; color:gray;" onclick="document.getElementById('attackModal').style.display='none'">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        let currentTarget = null;
+        let scanInterval = null;
+
+        function log(msg) {
+            const consoleDiv = document.getElementById('consoleLog');
+            consoleDiv.innerHTML += `\n[${new Date().toLocaleTimeString()}] ${msg}`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        async function getInterfaces() {
+            log("Solicitando interfaces via API...");
+            document.getElementById('status1').innerHTML = "<span class='blinking'>Analisando hardware...</span>";
+            const res = await fetch('/api/interfaces');
+            const data = await res.json();
+            
+            if(data.status === 'success' && data.interfaces.length > 0) {
+                const select = document.getElementById('interfaceSelect');
+                select.innerHTML = '';
+                data.interfaces.forEach(iface => {
+                    let opt = document.createElement('option');
+                    opt.value = iface;
+                    opt.innerHTML = iface;
+                    select.appendChild(opt);
+                });
+                select.style.display = 'inline-block';
+                document.getElementById('btnArmar').style.display = 'inline-block';
+                document.getElementById('status1').innerHTML = `Encontrada(s) ${data.interfaces.length} interface(s).`;
+                log("Interfaces carregadas no dashboard.");
+            } else {
+                document.getElementById('status1').innerHTML = "Nenhuma interface encontrada ou erro no servidor.";
+                log("ERRO: Nenhuma interface detectada.");
+            }
+        }
+
+        async function armInterface() {
+            const iface = document.getElementById('interfaceSelect').value;
+            log(`Armando interface ${iface} para modo stealth... Aguarde.`);
+            document.getElementById('status1').innerHTML = "<span class='blinking'>Isolando Kernel e aplicando driver monitor...</span>";
+            
+            const res = await fetch('/api/start_monitor', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ interface: iface })
+            });
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                document.getElementById('status1').innerHTML = `Modo Monitor ATIVADO em: ${data.monitor_interface}`;
+                log(`Sucesso absoluto: Interface armada -> ${data.monitor_interface}`);
+                document.getElementById('step2').style.display = 'block';
+            } else {
+                document.getElementById('status1').innerHTML = "Falha ao armar placa. Verifique os logs no C2.";
+                log(`ERRO: ${data.message}`);
+            }
+        }
+
+        async function startScan() {
+            log("Acionando Radar Airodump-ng...");
+            document.getElementById('btnScan').style.display = 'none';
+            document.getElementById('btnStopScan').style.display = 'inline-block';
+            document.getElementById('status2').innerHTML = "<span class='blinking'>Varrendo o espectro Wi-Fi (Atualizando a cada 3s)...</span>";
+            
+            await fetch('/api/start_scan', { method: 'POST' });
+            
+            // Inicia o loop para buscar redes e atualizar a tabela a cada 3 segundos
+            scanInterval = setInterval(fetchNetworks, 3000);
+        }
+
+        async function stopScan() {
+            log("Desligando Radar...");
+            clearInterval(scanInterval);
+            document.getElementById('btnScan').style.display = 'inline-block';
+            document.getElementById('btnStopScan').style.display = 'none';
+            document.getElementById('status2').innerHTML = "Radar pausado. Alvos congelados na tela.";
+            
+            await fetch('/api/stop_scan', { method: 'POST' });
+        }
+
+        async function fetchNetworks() {
+            const res = await fetch('/api/get_networks');
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                const tbody = document.querySelector('#networksTable tbody');
+                tbody.innerHTML = '';
+                
+                data.networks.forEach(net => {
+                    // Filtrar sinal negativo
+                    let pwr = parseInt(net.signal);
+                    let color = (pwr > -70) ? "var(--primary-color)" : (pwr > -85 ? "var(--warning-color)" : "var(--danger-color)");
+                    
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="color: ${color}; font-weight: bold;">${net.signal}</td>
+                        <td style="font-weight:bold; color:#fff;">${net.essid}</td>
+                        <td>${net.bssid}</td>
+                        <td>${net.channel}</td>
+                        <td>${net.privacy}</td>
+                        <td><button class="btn" style="padding: 5px 10px; font-size: 0.8em;" onclick="openAttackModal('${net.bssid}', '${net.essid}', '${net.channel}')">MIRAR</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function openAttackModal(bssid, essid, channel) {
+            currentTarget = {bssid, essid, channel};
+            document.getElementById('modalTargetName').innerText = `ALVO: ${essid} (${bssid})`;
+            document.getElementById('attackModal').style.display = 'block';
+        }
+
+        async function launchAttack(type) {
+            document.getElementById('attackModal').style.display = 'none';
+            await stopScan(); // Importante: Parar o radar antes de atacar (para o canal)
+            
+            currentTarget.attack_type = type;
+            log(`Iniciando Ataque (${type.toUpperCase()}) contra ${currentTarget.essid}... Isto rodará no backend.`);
+            log(`Por favor, acompanhe o terminal do backend Python para quebra de senhas complexas.`);
+            
+            const res = await fetch('/api/attack', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(currentTarget)
+            });
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                log(`[!] ATAQUE FINALIZADO: Arquivo capturado/gerado: ${data.cap_file}`);
+                log(`[!] O Hashcat/Aircrack foi engatilhado no backend da máquina (Cheque o terminal do Linux para Senhas).`);
+            } else {
+                log(`[ERRO NO ATAQUE] ${data.message}`);
+            }
+        }
+
+        async function restaurarSistema() {
+            log("Enviando sinal de aborto global e reiniciando o NetworkManager...");
+            if(scanInterval) clearInterval(scanInterval);
+            
+            const res = await fetch('/api/restore', { method: 'POST' });
+            const data = await res.json();
+            log(data.message);
+        }
+    </script>
+</body>
+</html>
