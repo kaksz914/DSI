@@ -1,14 +1,5 @@
-│ Iniciando Ataque PMKID Silencioso no alvo 0E:17:1B:27:15:24...                             │
-╰────────────────────────────────────────────────────────────────────────────────────────────╯
-[2026-03-26 09:53:27,859] ERROR in app: Exception on /api/attack [POST]
-Traceback (most recent call last):
-  File "/usr/lib/python3/dist-packages/rich/spinner.py", line 35, in __init__
-    spinner = SPINNERS[name]
-              ~~~~~~~~^^^^^^
-KeyError: 'alien'
-
-During handling of the above exception, another exception occurred:
-
+[!] Anomalia detectada. Forçando injeção via API Baixo Nível (ip/iw)...
+[2026-03-26 09:31:52,384] ERROR in app: Exception on /api/start_monitor [POST]
 Traceback (most recent call last):
   File "/usr/lib/python3/dist-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
@@ -19,15 +10,12 @@ Traceback (most recent call last):
   File "/usr/lib/python3/dist-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "/home/kalibox/Documents/Prjecto IA/DSI/web_auditor.py", line 130, in launch_attack
-    cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-  File "/home/kalibox/Documents/Prjecto IA/DSI/wifi_auditor.py", line 284, in capture_pmkid
-    with Progress(SpinnerColumn("alien"), TextColumn("[bold red]{task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
-                  ~~~~~~~~~~~~~^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/rich/progress.py", line 586, in __init__
-    self.spinner = Spinner(spinner_name, style=style, speed=speed)
-                   ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/rich/spinner.py", line 37, in __init__
-    raise KeyError(f"no spinner called {name!r}")
-KeyError: "no spinner called 'alien'"
-127.0.0.1 - - [26/Mar/2026 09:53:29] "POST /api/attack HTTP/1.1" 500 -
+  File "/home/kalibox/Documents/Prjecto IA/DSI/web_auditor.py", line 42, in start_monitor
+    CURRENT_MONITOR_IFACE = set_monitor_mode(iface)
+  File "/home/kalibox/Documents/Prjecto IA/DSI/wifi_auditor.py", line 163, in set_monitor_mode
+    if "type monitor" in stdout_iw:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: argument of type 'NoneType' is not iterable
+127.0.0.1 - - [26/Mar/2026 09:31:52] "POST /api/start_monitor HTTP/1.1" 500 -
+
+

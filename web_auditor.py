@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 
 # Importa as funções principais do nosso script anterior (core da ferramenta)
-from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps
+from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6
 from dsi_sniffer import DSISniffer, spoof, restore_arp
 
 app = Flask(__name__)
@@ -223,6 +223,13 @@ def stop_mitm():
     global SPOOF_ACTIVE
     SPOOF_ACTIVE = False
     return jsonify({"status": "success", "message": "Sinal de parada enviado ao Spoof."})
+
+@app.route('/api/fix/wifi6', methods=['POST'])
+def fix_wifi6():
+    add_log("Iniciando Módulo de Diagnóstico Wi-Fi 6...", log_type="cmd", is_command=True)
+    # Roda em thread pois pode demorar (compilação)
+    threading.Thread(target=fix_drivers_wifi6).start()
+    return jsonify({"status": "success", "message": "Diagnóstico iniciado. Acompanhe o console do servidor."})
 
 if __name__ == '__main__':
     if os.geteuid() != 0: exit(1)
