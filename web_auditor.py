@@ -3,6 +3,7 @@ import time
 import csv
 import subprocess
 import threading
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 
 # Importa as funções principais do nosso script anterior (core da ferramenta)
