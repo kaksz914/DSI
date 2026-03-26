@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, jsonify
 
 # Importa o núcleo
 import wifi_auditor
-from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6
+from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack
 from dsi_sniffer import DSISniffer, spoof, restore_arp
 
 app = Flask(__name__)
@@ -106,6 +106,9 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     cap_file = None
     if attack_type == 'wps':
         capture_wps(CURRENT_MONITOR_IFACE, bssid, channel)
+        return
+    if attack_type == 'ghost':
+        start_ghost_attack(CURRENT_MONITOR_IFACE, essid)
         return
     if attack_type == 'pmkid':
         cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
