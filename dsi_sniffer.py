@@ -23,7 +23,7 @@ class DSISniffer:
         self.social_domains = [
             "facebook.com", "instagram.com", "twitter.com", "x.com", 
             "linkedin.com", "tiktok.com", "snapchat.com", "whatsapp.com",
-            "messenger.com", "telegram.org"
+            "messenger.com", "telegram.org", "cdninstagram.com", "fbcdn.net"
         ]
         
         self.cred_keywords = ["user", "username", "login", "email", "pass", "password"]
