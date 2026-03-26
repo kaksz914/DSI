@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, jsonify
 
 # Importa as funções principais do nosso script anterior (core da ferramenta)
 from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps
+from dsi_sniffer import DSISniffer, spoof, restore_arp
 
 app = Flask(__name__)
 
@@ -16,6 +17,9 @@ CURRENT_MONITOR_IFACE = None
 SCAN_PROCESS = None
 CSV_PREFIX = "web_scan_results"
 SESSION_LOGS = []
+
+SNIFFER_INSTANCE = None
+SPOOF_ACTIVE = False
 
 def add_log(msg, log_type="info", is_command=False):
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -166,6 +170,59 @@ def restore():
     if SCAN_PROCESS: SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
     if CURRENT_MONITOR_IFACE: set_managed_mode(CURRENT_MONITOR_IFACE); CURRENT_MONITOR_IFACE = None
     return jsonify({"status": "success"})
+
+@app.route('/api/sniff/start', methods=['POST'])
+def start_sniff():
+    global CURRENT_MONITOR_IFACE, SNIFFER_INSTANCE
+    # O Sniffer funciona melhor em modo Managed ou se a interface monitor estiver UP e no canal correto.
+    # Vamos usar a interface que estiver disponível.
+    iface = CURRENT_MONITOR_IFACE or "wlan0"
+    
+    if not SNIFFER_INSTANCE:
+        SNIFFER_INSTANCE = DSISniffer(iface, log_callback=add_log)
+        SNIFFER_INSTANCE.start()
+        return jsonify({"status": "success", "message": f"Sniffer Grão-Mestre ativo em {iface}"})
+    return jsonify({"status": "error", "message": "Sniffer já está rodando."})
+
+@app.route('/api/sniff/stop', methods=['POST'])
+def stop_sniff():
+    global SNIFFER_INSTANCE
+    if SNIFFER_INSTANCE:
+        SNIFFER_INSTANCE.stop()
+        SNIFFER_INSTANCE = None
+    return jsonify({"status": "success", "message": "Sniffer interrompido."})
+
+@app.route('/api/mitm/start', methods=['POST'])
+def start_mitm():
+    global SPOOF_ACTIVE
+    data = request.get_json()
+    target_ip = data.get('target_ip')
+    gateway_ip = data.get('gateway_ip')
+    
+    if not target_ip or not gateway_ip:
+        return jsonify({"status": "error", "message": "IPs de Alvo e Gateway necessários."})
+
+    def run_spoof():
+        global SPOOF_ACTIVE
+        SPOOF_ACTIVE = True
+        add_log(f"Iniciando Envenenamento ARP: {target_ip} <-> {gateway_ip}", log_type="cmd", is_command=True)
+        try:
+            while SPOOF_ACTIVE:
+                spoof(target_ip, gateway_ip)
+                spoof(gateway_ip, target_ip)
+                time.sleep(2)
+        except Exception as e:
+            add_log(f"Erro no Spoofing: {e}", log_type="error")
+            SPOOF_ACTIVE = False
+
+    threading.Thread(target=run_spoof, daemon=True).start()
+    return jsonify({"status": "success", "message": "Intercepção MITM em andamento."})
+
+@app.route('/api/mitm/stop', methods=['POST'])
+def stop_mitm():
+    global SPOOF_ACTIVE
+    SPOOF_ACTIVE = False
+    return jsonify({"status": "success", "message": "Sinal de parada enviado ao Spoof."})
 
 if __name__ == '__main__':
     if os.geteuid() != 0: exit(1)

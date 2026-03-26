@@ -126,6 +126,17 @@
         </table>
     </div>
 
+    <div class="panel" id="step4" style="display:none; border-left-color: var(--secondary);">
+        <h2>4. FAREJADOR DE PACOTES (SNIFFER & MITM)</h2>
+        <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap: wrap;">
+            <button class="btn" id="btnSniff" onclick="toggleSniff()">Iniciar Sniffing Global</button>
+            <input type="text" id="targetIp" placeholder="IP Alvo (ex: 192.168.1.5)" class="select-interface" style="width:200px;">
+            <input type="text" id="gatewayIp" placeholder="Gateway (ex: 192.168.1.1)" class="select-interface" style="width:200px;">
+            <button class="btn btn-danger" id="btnMitm" onclick="toggleMitm()">Ativar Intercepção (MITM)</button>
+        </div>
+        <p style="font-size: 0.7em; color:var(--secondary);">O Sniffer Magistrado monitora Redes Sociais e Credenciais em tempo real nos logs abaixo.</p>
+    </div>
+
     <div class="panel">
         <h2>3. TERMINAL C2 GLOBAL (LOGS VIVOS)</h2>
         <div class="console-output" id="consoleLog">
@@ -201,6 +212,38 @@
             if(data.status === 'success') {
                 document.getElementById('status1').innerHTML = `<span style="color:var(--primary)">[ATIVO] ${data.monitor_interface}</span>`;
                 document.getElementById('step2').style.display = 'block';
+                document.getElementById('step4').style.display = 'block';
+            }
+        }
+
+        let sniffing = false;
+        async function toggleSniff() {
+            sniffing = !sniffing;
+            const btn = document.getElementById('btnSniff');
+            if(sniffing) {
+                btn.innerText = "Parar Sniffing"; btn.classList.add('btn-danger');
+                await fetch('/api/sniff/start', { method: 'POST' });
+            } else {
+                btn.innerText = "Iniciar Sniffing Global"; btn.classList.remove('btn-danger');
+                await fetch('/api/sniff/stop', { method: 'POST' });
+            }
+        }
+
+        let mitm = false;
+        async function toggleMitm() {
+            mitm = !mitm;
+            const btn = document.getElementById('btnMitm');
+            const target = document.getElementById('targetIp').value;
+            const gateway = document.getElementById('gatewayIp').value;
+            if(mitm) {
+                btn.innerText = "Parar Intercepção";
+                await fetch('/api/mitm/start', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ target_ip: target, gateway_ip: gateway })
+                });
+            } else {
+                btn.innerText = "Ativar Intercepção (MITM)";
+                await fetch('/api/mitm/stop', { method: 'POST' });
             }
         }
 
