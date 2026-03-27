@@ -45,11 +45,19 @@ address=/#/10.0.0.1
         
         def run():
             try:
-                if log_callback: log_callback(f"Iniciando Ponto de Acesso Falso: {self.ssid}", log_type="cmd")
+                if log_callback: log_callback(f"Resertando hardware para modo AP: {self.ssid}", log_type="cmd")
+                
+                # 0. Limpeza profunda: Algumas placas Wi-Fi 6 travam se o modo monitor estiver ativo
+                subprocess.run(f"sudo airmon-ng stop {self.interface}", shell=True, capture_output=True)
+                subprocess.run(f"sudo ip link set {self.interface} down", shell=True)
+                subprocess.run(f"sudo iw dev {self.interface} set type managed", shell=True)
                 
                 # 1. Prepara a interface
+                subprocess.run(f"sudo ip addr flush dev {self.interface}", shell=True)
                 subprocess.run(f"sudo ip addr add 10.0.0.1/24 dev {self.interface}", shell=True)
                 subprocess.run(f"sudo ip link set {self.interface} up", shell=True)
+                
+                if log_callback: log_callback(f"Lançando Ponto de Acesso: {self.ssid}")
                 
                 # 2. Inicia Hostapd
                 self.hostapd_proc = subprocess.Popen(

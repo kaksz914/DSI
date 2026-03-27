@@ -188,11 +188,16 @@ def restore():
 
 @app.route('/api/twin/start', methods=['POST'])
 def start_twin():
-    global TWIN_INSTANCE, CURRENT_MANAGED_IFACE
+    global TWIN_INSTANCE, CURRENT_MANAGED_IFACE, SCAN_PROCESS, CURRENT_MONITOR_IFACE
     data = request.get_json()
     ssid = data.get('ssid')
     iface = CURRENT_MANAGED_IFACE or "wlan0"
     
+    # Interrompe o Radar e o Sniffer antes do Twin (conflito de rádio)
+    if SCAN_PROCESS:
+        SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
+        add_log("Radar desativado para liberar o hardware.")
+
     if not TWIN_INSTANCE:
         TWIN_INSTANCE = DSITwin(iface, ssid)
         TWIN_INSTANCE.generate_configs()
