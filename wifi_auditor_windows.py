@@ -1,205 +1,145 @@
-import subprocess
 import os
 import time
+import subprocess
 import json
-import re
-from datetime import datetime
 import ctypes
+from datetime import datetime
+
+# =========================================================================
+# DSI SUPREME C2 - TERMINAL WINDOWS EDITION
+# Adaptação para arquitetura Windows (Sem suporte nativo a injeção NDIS)
+# =========================================================================
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.prompt import Prompt
+    from rich import print as rprint
+except ImportError:
+    print("[!] O pacote 'rich' não foi encontrado. Instale com: pip install rich")
+    exit(1)
+
+console = Console()
 
 def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
+    try: return ctypes.windll.shell32.IsUserAnAdmin()
+    except: return False
 
-def show_manual():
-    print("\n" + "="*60)
-    print("      MANUAL DE INSTRUÇÕES (EXPERT) - VERSÃO WINDOWS")
-    print("="*60)
-    print("Aviso Crítico do Expert:")
-    print("A auditoria Wi-Fi no Windows sofre severas limitações em comparação ao Linux.")
-    print("A API nativa do Windows e os drivers das placas de rede comerciais raramente")
-    print("permitem injeção de pacotes (necessária para Deauth Attack).")
-    print("\nO que esta versão Windows FAZ:")
-    print("- Mapeamento Passivo (Reconhecimento) usando a API nativa ('netsh wlan').")
-    print("- Registro de redes e RSSI (Força do Sinal) em JSON permanente.")
-    print("- Execução do 'aircrack-ng' offline (caso você tenha arquivos .cap gerados em outro lugar).")
-    print("\nO que esta versão Windows NÃO FAZ (Limitações do S.O.):")
-    print("- Não captura handshakes ativamente pelo ar sem hardware especial (como as placas Airpcap da Riverbed).")
-    print("- Não realiza ataques PMKID nativamente.")
-    print("\nPara a experiência completa de captura, use a versão Linux em um ambiente Live USB ou Máquina Virtual com placa Wi-Fi externa USB conectada.")
-    print("="*60 + "\n")
-    input("Pressione ENTER para voltar ao menu principal...")
-
-def save_networks_log(networks):
-    log_file = "redes_identificadas_windows_log.json"
-    data = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "total_redes_encontradas": len(networks),
-        "redes": networks
-    }
-    
-    try:
-        todas_sessoes = []
-        if os.path.exists(log_file):
-             with open(log_file, "r", encoding="utf-8") as f:
-                  try:
-                      todas_sessoes = json.load(f)
-                      if not isinstance(todas_sessoes, list):
-                          todas_sessoes = [todas_sessoes]
-                  except json.JSONDecodeError:
-                      pass
-                      
-        todas_sessoes.append(data)
-        
-        with open(log_file, "w", encoding="utf-8") as f:
-            json.dump(todas_sessoes, f, indent=4, ensure_ascii=False)
-            
-        print(f"\n[Registro] Informações de {len(networks)} redes salvas em: {log_file}")
-    except Exception as e:
-        print(f"\n[Erro] Falha ao salvar o log de redes: {e}")
-
-def get_wifi_interfaces():
-    print("\nProcurando interfaces Wi-Fi via 'netsh'...")
-    try:
-        result = subprocess.run(["netsh", "wlan", "show", "interfaces"], capture_output=True, text=True, check=True)
-        # Processamento simples para pegar o nome da interface no output do Windows
-        interfaces = []
-        for line in result.stdout.split('\n'):
-            if "Nome" in line or "Name" in line:
-                nome = line.split(":")[1].strip()
-                interfaces.append(nome)
-        
-        if interfaces:
-             print("\nInterfaces encontradas:")
-             for i, iface in enumerate(interfaces):
-                 print(f"{i+1}. {iface}")
-             return interfaces
-        else:
-             print("Nenhuma interface Wi-Fi detectada pelo netsh.")
-             return None
-             
-    except Exception as e:
-        print(f"Erro ao acessar interfaces: {e}")
-        return None
+def print_banner():
+    banner = """
+[bold cyan]██████╗ ███████╗██╗    ██╗    ██╗██╗███╗   ██╗[/bold cyan]
+[bold cyan]██╔══██╗██╔════╝██║    ██║    ██║██║████╗  ██║[/bold cyan]
+[bold blue]██║  ██║███████╗██║    ██║ █╗ ██║██║██╔██╗ ██║[/bold blue]
+[bold blue]██║  ██║╚════██║██║    ██║███╗██║██║██║╚██╗██║[/bold blue]
+[bold magenta]██████╔╝███████║██║    ╚███╔███╔╝██║██║ ╚████║[/bold magenta]
+[bold magenta]╚═════╝ ╚══════╝╚═╝     ╚══╝╚══╝ ╚═╝╚═╝  ╚═══╝[/bold magenta]
+[bold white]       W I N D O W S   S U P R E M E          [/bold white]
+    """
+    console.print(Panel(banner, title="[bold red]DSI C2 ONLINE[/bold red]", border_style="cyan", padding=(1, 2)))
 
 def scan_networks_windows():
-    print("\n[Mapeamento] Executando varredura passiva no ambiente...")
-    # Força a atualização da lista de redes do Windows (pode exigir direitos de admin para algumas placas)
-    subprocess.run(["netsh", "interface", "set", "interface", "name=\"Wi-Fi\"", "admin=disable"], capture_output=True)
-    time.sleep(1)
-    subprocess.run(["netsh", "interface", "set", "interface", "name=\"Wi-Fi\"", "admin=enable"], capture_output=True)
-    print("Aguardando estabilização do sinal... (5s)")
-    time.sleep(5)
-    
+    console.print("\n[bold yellow][MAPA DE ESPECTRO] Varrendo redes com API NDIS (Windows)...[/bold yellow]")
     try:
-        # Comando para listar as redes visíveis com BSSID
-        result = subprocess.run(["netsh", "wlan", "show", "networks", "mode=bssid"], capture_output=True, text=True, check=True, encoding='cp850', errors='ignore')
+        # Tenta forçar refresh desabilitando/habilitando (pode falhar se nome for diferente)
+        subprocess.run(["netsh", "interface", "set", "interface", "name=\"Wi-Fi\"", "admin=disable"], capture_output=True)
+        time.sleep(1)
+        subprocess.run(["netsh", "interface", "set", "interface", "name=\"Wi-Fi\"", "admin=enable"], capture_output=True)
+        time.sleep(4)
+        
+        result = subprocess.run(["netsh", "wlan", "show", "networks", "mode=bssid"], capture_output=True, text=True, encoding='cp850', errors='ignore')
         
         networks = []
-        current_network = {}
-        
-        # Parse rudimentar do output do netsh wlan do Windows
+        current_net = {}
         for line in result.stdout.split('\n'):
             line = line.strip()
             if line.startswith("SSID"):
-                if current_network and 'bssid' in current_network:
-                    networks.append(current_network)
-                current_network = {}
+                if current_net and 'bssid' in current_net: networks.append(current_net)
+                current_net = {}
                 parts = line.split(":", 1)
-                if len(parts) > 1:
-                     current_network['essid'] = parts[1].strip()
+                if len(parts) > 1: current_net['essid'] = parts[1].strip()
             elif "Autentica" in line or "Authentication" in line:
-                current_network['privacy'] = line.split(":", 1)[1].strip()
+                current_net['privacy'] = line.split(":", 1)[1].strip()
             elif "BSSID" in line:
-                current_network['bssid'] = line.split(":", 1)[1].strip()
+                current_net['bssid'] = line.split(":", 1)[1].strip()
             elif "Sinal" in line or "Signal" in line:
-                current_network['signal'] = line.split(":", 1)[1].strip()
+                val = line.split(":", 1)[1].strip()
+                current_net['signal'] = val
             elif "Canal" in line or "Channel" in line:
-                current_network['channel'] = line.split(":", 1)[1].strip()
-                
-        if current_network and 'bssid' in current_network:
-             networks.append(current_network)
-             
-        if not networks:
-            print("Nenhuma rede encontrada na varredura.")
-            return None
-            
-        save_networks_log(networks)
+                current_net['channel'] = line.split(":", 1)[1].strip()
         
-        print("\nRedes Identificadas:")
-        print(f"{'#':<3} {'ESSID':<20} {'BSSID':<20} {'CANAL':<6} {'SINAL':<6}")
-        print("-" * 60)
-        for i, net in enumerate(networks):
-            essid = net.get('essid', 'Oculta')
-            bssid = net.get('bssid', 'N/A')
-            canal = net.get('channel', 'N/A')
-            sinal = net.get('signal', 'N/A')
-            print(f"{i + 1:<3} {essid:<20} {bssid:<20} {canal:<6} {sinal:<6}")
+        if current_net and 'bssid' in current_net: networks.append(current_net)
+        
+        if not networks:
+            console.print("[bold red]Nenhuma rede detectada.[/bold red]")
+            return
             
-        return networks
+        table = Table(title="[bold green]ALVOS MÚLTIPLOS DETECTADOS[/bold green]", show_lines=True)
+        table.add_column("ID", justify="center", style="cyan")
+        table.add_column("ESSID", style="bold white")
+        table.add_column("BSSID", style="magenta")
+        table.add_column("Sinal", justify="center", style="yellow")
+        
+        for i, net in enumerate(networks):
+            table.add_row(str(i+1), net.get('essid', 'N/A'), net.get('bssid', 'N/A'), net.get('signal', 'N/A'))
+        
+        console.print(table)
+        console.print("\n[bold red][!] NOTA DE LIMITAÇÃO (OS WINDOWS):[/bold red]")
+        console.print("Ataques ativos como Deauth, MDK4 ou PMKID não podem ser executados neste terminal")
+        console.print("pois a Microsoft bloqueia injeção de pacotes brutos nas placas de rede padrão.")
+        console.print("Utilize o painel Web (`run_web_windows.bat`) para ataques de Evil Twin, ou rode o C2 em Linux.")
 
     except Exception as e:
-        print(f"Erro durante varredura: {e}")
-        return None
+        console.print(f"[bold red]Erro ao invocar API do Windows: {e}[/bold red]")
 
 def crack_offline_windows():
-    print("\n[Expert Offline Cracker] Módulo de quebra de senhas.")
-    print("Este módulo usa o aircrack-ng/hashcat (se instalados e no PATH do Windows).")
-    print("Ele processa arquivos de captura (.cap/.pcapng/.16800) gerados em outras plataformas.\n")
+    console.print(Panel("[bold yellow]MÓDULO DE CRACKING (FORÇA BRUTA OFFLINE)[/bold yellow]"))
+    console.print("Utilizando CPU/GPU local para quebrar arquivos .cap ou .16800 capturados anteriormente.")
     
-    capture_file = input("Caminho do arquivo de captura (ex: C:\\arquivos\\handshake.cap): ").strip('\"')
-    
-    if not os.path.exists(capture_file):
-        print("Arquivo de captura não encontrado.")
+    cap = Prompt.ask("\n[bold cyan]Caminho do Arquivo (Ex: C:\\captures\\alvo.cap)[/bold cyan]")
+    if not os.path.exists(cap):
+        console.print("[bold red]Arquivo não encontrado.[/bold red]")
         return
         
-    wordlist_file = input("Caminho do arquivo de dicionário (ex: C:\\arquivos\\rockyou.txt): ").strip('\"')
-    
-    if not os.path.exists(wordlist_file):
-        print("Arquivo de dicionário não encontrado.")
+    wordlist = Prompt.ask("[bold cyan]Caminho da Wordlist (Ex: C:\\wordlists\\rockyou.txt)[/bold cyan]")
+    if not os.path.exists(wordlist):
+        console.print("[bold red]Wordlist não encontrada.[/bold red]")
         return
         
-    print("\nExecutando Aircrack-ng (Certifique-se de ter instalado os binários do Windows).")
+    console.print("\n[bold green]Iniciando Hashcat/Aircrack-ng... (Requer binários no PATH do Windows)[/bold green]")
     try:
-         # Tenta chamar o aircrack-ng no Windows
-         crack_cmd = f"aircrack-ng -w \"{wordlist_file}\" \"{capture_file}\""
-         subprocess.run(crack_cmd, shell=True)
+        # Se for pmkid
+        if cap.endswith(".16800"):
+            subprocess.run(f"hashcat -m 16800 -a 0 \"{cap}\" \"{wordlist}\"", shell=True)
+        else:
+            subprocess.run(f"aircrack-ng -w \"{wordlist}\" \"{cap}\"", shell=True)
     except Exception as e:
-         print(f"Erro ao tentar rodar aircrack-ng: {e}")
-         print("Você tem os binários do aircrack-ng para Windows instalados e nas variáveis de ambiente PATH?")
+        console.print(f"[bold red]Erro de execução: {e}[/bold red]")
 
 def main():
     if not is_admin():
-         print("[!] AVISO: Executando sem privilégios de Administrador.")
-         print("Algumas requisições de rede podem ser negadas. É recomendado executar o Prompt de Comando como Administrador.\n")
+         console.print("[bold yellow][!] AVISO: Executando sem privilégios de Administrador. Alguns recursos falharão.[/bold yellow]\n")
 
     while True:
-        print("\n" + "=" * 50)
-        print("  Auditoria Wi-Fi Automatizada (Windows Edition)")
-        print("  AVISO: Funcionalidade reduzida devido à arquitetura NDIS do Windows.")
-        print("=" * 50)
-        print("1. Escanear Redes Próximas (Reconhecimento Passivo)")
-        print("2. Quebrar Senha Offline (Requer arquivo .cap)")
-        print("3. Ler Manual e Limitações do Windows")
-        print("4. Sair")
+        os.system("cls")
+        print_banner()
+        console.print("\n[bold cyan]1.[/bold cyan] [white]Mapeamento de Redes (Radar Passivo API)[/white]")
+        console.print("[bold cyan]2.[/bold cyan] [white]Módulo de Força Bruta Offline (Crack .cap/.16800)[/white]")
+        console.print("[bold cyan]3.[/bold cyan] [white]Inicie o C2 Web (`run_web_windows.bat`) para interface completa[/white]")
+        console.print("[bold cyan]4.[/bold cyan] [white]Sair[/white]")
         
-        opcao = input("\nEscolha uma opção (1-4): ")
+        opcao = Prompt.ask("\n[bold green]Ação[/bold green]", choices=["1", "2", "3", "4"])
         
-        if opcao == '3':
-            show_manual()
-            continue
-        elif opcao == '4':
-            print("Saindo da ferramenta. Até logo!")
-            return
+        if opcao == '4': return
+        elif opcao == '3':
+            console.print("\n[bold green]Feche este terminal e execute o arquivo `run_web_windows.bat` na pasta.[/bold green]")
+            Prompt.ask("\nPressione ENTER para voltar...")
         elif opcao == '1':
             scan_networks_windows()
-            input("\nPressione ENTER para voltar ao menu...")
+            Prompt.ask("\n[bold cyan]Pressione ENTER para voltar ao menu...[/bold cyan]")
         elif opcao == '2':
             crack_offline_windows()
-            input("\nPressione ENTER para voltar ao menu...")
-        else:
-            print("Opção inválida.")
+            Prompt.ask("\n[bold cyan]Pressione ENTER para voltar ao menu...[/bold cyan]")
 
 if __name__ == "__main__":
     main()
