@@ -218,6 +218,9 @@
         <div class="nav-item" onclick="switchView('sniffer')" id="navSniffer">
             <i class="fas fa-user-secret"></i> Sniffer & MITM
         </div>
+        <div class="nav-item" onclick="switchView('twin')" id="navTwin">
+            <i class="fas fa-users-slash"></i> Evil Twin
+        </div>
         <div class="nav-item" onclick="switchView('logs')">
             <i class="fas fa-terminal"></i> Console C2
         </div>
@@ -316,6 +319,20 @@
                     </div>
                 </div>
                 <p style="font-size: 0.7em; color:var(--secondary); margin-top:20px;">O módulo de Geolocalização rastreia automaticamente a origem de mensagens recebidas pelos alvos.</p>
+            </div>
+        </section>
+
+        <!-- SECTION: EVIL TWIN -->
+        <section id="twin" class="view-section">
+            <div class="panel">
+                <div class="panel-title"><i class="fas fa-copy"></i> DSI-TWIN: Ponto de Acesso Falso</div>
+                <div style="margin-bottom:20px; display:flex; gap:10px;">
+                    <input type="text" id="twinSsid" placeholder="Nome da Rede Falsa (ex: Starlink_S4)" style="flex:1;">
+                    <button class="btn" id="btnTwin" onclick="toggleTwin()">Ativar Evil Twin</button>
+                </div>
+                <p style="font-size: 0.75em; color:var(--warning);">
+                    [!] Este modo cria uma rede aberta. Ao conectar, o alvo será redirecionado para um portal de atualização de firmware onde deverá digitar a senha original.
+                </p>
             </div>
         </section>
 
@@ -528,6 +545,25 @@
             } else {
                 btn.innerText = "ATIVAR";
                 await fetch('/api/mitm/stop', { method: 'POST' });
+            }
+        }
+
+        let twinActive = false;
+        async function toggleTwin() {
+            twinActive = !twinActive;
+            const btn = document.getElementById('btnTwin');
+            const ssid = document.getElementById('twinSsid').value;
+            if(twinActive) {
+                btn.innerText = "Parar Evil Twin";
+                btn.classList.add('btn-danger');
+                await fetch('/api/twin/start', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ssid: ssid })
+                });
+            } else {
+                btn.innerText = "Ativar Evil Twin";
+                btn.classList.remove('btn-danger');
+                await fetch('/api/twin/stop', { method: 'POST' });
             }
         }
 

