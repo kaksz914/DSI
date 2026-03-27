@@ -295,6 +295,10 @@
         <section id="sniffer" class="view-section">
             <div class="panel">
                 <div class="panel-title"><i class="fas fa-spider"></i> Intercepção de Tráfego & MITM</div>
+                <div style="margin-bottom:20px;">
+                    <button class="btn" onclick="scanNetwork()"><i class="fas fa-search-location"></i> Mapear Dispositivos na Rede (ARP Scan)</button>
+                    <div id="networkDevices" style="margin-top:10px; font-size:0.8em; color:var(--primary);"></div>
+                </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                     <div>
                         <p style="font-size:0.8em; margin-bottom:10px;">Intercepção Global (Sniffing):</p>
@@ -524,6 +528,19 @@
             } else {
                 btn.innerText = "ATIVAR";
                 await fetch('/api/mitm/stop', { method: 'POST' });
+            }
+        }
+
+        async function scanNetwork() {
+            document.getElementById('networkDevices').innerHTML = "<span class='blinking'>Escaneando IPs ativos na rede...</span>";
+            const res = await fetch('/api/network/scan', { method: 'POST' });
+            const data = await res.json();
+            if(data.status === 'success') {
+                let html = "<strong>Dispositivos Encontrados:</strong><br>";
+                data.devices.forEach(d => {
+                    html += `<span style='cursor:pointer; color:white;' onclick="document.getElementById('targetIp').value='${d.ip}'">${d.ip} (${d.mac})</span><br>`;
+                });
+                document.getElementById('networkDevices').innerHTML = html;
             }
         }
 
