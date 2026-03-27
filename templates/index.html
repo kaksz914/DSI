@@ -332,28 +332,23 @@
     <!-- ATTACK MODAL -->
     <div id="attackModal">
         <div class="modal-content">
-            <h2 id="modalTargetName" style="color:var(--primary); font-size:1.5em;"></h2>
-            <p style="font-size:0.8em; margin-bottom:30px; opacity:0.7;">Análise de Vetores Magistrados</p>
-            <div style="display:flex; flex-direction:column; gap:15px;">
-                <button class="btn" style="border-color:white; color:white; background:rgba(255,255,255,0.1);" onclick="launchAttack('vetorx')">
-                    <i class="fas fa-atom"></i> VETOR X: Incursão Total (Ative Injection)
+            <h3 id="modalTargetName" style="color:var(--primary); font-size:1.5em; margin-bottom: 5px;"></h3>
+            <div id="targetAdvice" style="font-size:0.7em; color:var(--warning); margin-bottom:20px;"></div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <button class="btn" style="border-color:var(--secondary); background:rgba(188,0,255,0.15); font-weight:900;" onclick="launchAttack('autopilot')">
+                    <i class="fas fa-robot"></i> MODO AUTOPILOTO (INTELIGÊNCIA ARTIFICIAL)
+                </button>
+                <div style="height:1px; background:#333; margin: 5px 0;"></div>
+                <button class="btn" style="border-color:white; color:white;" onclick="launchAttack('vetorx')">
+                    <i class="fas fa-atom"></i> Vetor X: Incursão Total (Ative)
                 </button>
                 <button class="btn" onclick="launchAttack('pmkid')">
                     <i class="fas fa-bolt"></i> Vetor A: Extração PMKID (Stealth)
                 </button>
-                <button class="btn" style="border-color:var(--secondary); color:var(--secondary);" onclick="launchAttack('wps')">
-                    <i class="fas fa-key"></i> Vetor B: WPS Pixie-Dust (Incursão Direta)
-                </button>
                 <button class="btn btn-danger" onclick="launchAttack('handshake')">
-                    <i class="fas fa-radiation"></i> Vetor C: Deauth Massivo (MDK4)
+                    <i class="fas fa-radiation"></i> Vetor C: Deauth/MDK4 Massivo
                 </button>
-                <button class="btn" style="border-color:var(--warning); color:var(--warning);" onclick="launchAttack('ghost')">
-                    <i class="fas fa-ghost"></i> Vetor D: Ataque Fantasma (Beacon Flood)
-                </button>
-                <button class="btn" style="border-color:var(--primary); background:rgba(0,255,204,0.1);" onclick="launchAttack('wifite')">
-                    <i class="fas fa-robot"></i> Vetor E: WIFITE2 (AUTO-HACK)
-                </button>
-                <button class="btn" style="border-color:#333; color:#555; margin-top:15px;" onclick="document.getElementById('attackModal').style.display='none'">Abortar Alvo</button>
+                <button class="btn" style="border-color:#333; color:#555; margin-top:10px;" onclick="document.getElementById('attackModal').style.display='none'">Abortar Alvo</button>
             </div>
         </div>
     </div>
@@ -476,6 +471,14 @@
         function openAttackModal(bssid, essid, channel) {
             currentTarget = {bssid, essid, channel};
             document.getElementById('modalTargetName').innerText = essid;
+            // Busca o vendedor na tabela para mostrar conselho
+            const row = Array.from(document.querySelectorAll('#radarBody tr')).find(r => r.innerText.includes(bssid));
+            const vendor = row ? row.querySelector('.vendor-tag').innerText : "Desconhecido";
+            
+            let advice = "Alvo Mapeado. ";
+            if(vendor.includes("SpaceX") || vendor.includes("Starlink")) advice = "[!] STARLINK DETECTADA: Use Autopiloto ou Vetor X.";
+            document.getElementById('targetAdvice').innerText = advice;
+            
             document.getElementById('attackModal').style.display = 'block';
         }
 

@@ -19,3 +19,18 @@ TypeError: argument of type 'NoneType' is not iterable
 127.0.0.1 - - [26/Mar/2026 09:31:52] "POST /api/start_monitor HTTP/1.1" 500 -
 
 
+implementa o metodo de ataque wifi mais moderda e eficaz do mundo
+
+Invocando Modo Monitor em wlan0...
+[07:10:34] Testando injeção em wlan0...
+[07:10:36] HARDWARE LIMITADO: Injeção falhou.
+[07:10:41] [CMD] Varredura Ativa DSI Iniciada.
+
+[07:09:15] Invocando Modo Monitor em wlan0...
+[07:10:34] Testando injeção em wlan0...
+[07:10:36] HARDWARE LIMITADO: Injeção falhou.
+[07:10:41] [CMD] Varredura Ativa DSI Iniciada.
+[07:12:10] [CMD] COMBATE INICIADO: Furtado_guest (Fabricante Desconhecido)
+[07:12:10] DSI INTEL: Alvo mapeado. Use Deauth ou PMKID.
+
+2. o hard reset nao esta voltanto a placa de rede normal outravez

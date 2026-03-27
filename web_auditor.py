@@ -7,7 +7,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 
 import wifi_auditor
-from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x
+from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot
 from dsi_sniffer import DSISniffer, spoof, restore_arp
 
 app = Flask(__name__)
@@ -101,7 +101,10 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     if attack_type == 'wps': capture_wps(CURRENT_MONITOR_IFACE, bssid, channel); return
     if attack_type == 'ghost': start_ghost_attack(CURRENT_MONITOR_IFACE, essid); return
     if attack_type == 'wifite': start_wifite_expert(CURRENT_MONITOR_IFACE); return
-    if attack_type == 'vetorx':
+    if attack_type == 'autopilot':
+        add_log("ATIVANDO MODO AUTOPILOTO: O sistema assumirá o controle total dos vetores.", log_type="cmd")
+        cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid": essid, "bssid": bssid, "channel": channel})
+    elif attack_type == 'vetorx':
         add_log("Executando VETOR X (Incursão Total de Última Geração)...")
         cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
     elif attack_type == 'pmkid':
