@@ -113,6 +113,24 @@ def api_scan_network():
     add_log(f"Mapeamento concluído. {len(devices)} dispositivos identificados.")
     return jsonify({"status": "success", "devices": devices})
 
+@app.route('/api/bluetooth/scan', methods=['POST'])
+def api_scan_bluetooth():
+    add_log("Iniciando Escaneamento Bluetooth de Curto Alcance...", log_type="cmd", is_command=True)
+    try:
+        # Comando hcitool para scannear dispositivos bluetooth
+        res = subprocess.run("hcitool scan", shell=True, capture_output=True, text=True, timeout=10)
+        devices = []
+        for line in res.stdout.split('\n')[1:]:
+            if line.strip():
+                parts = line.split('\t')
+                if len(parts) >= 3:
+                    devices.append({'mac': parts[1], 'name': parts[2]})
+        add_log(f"Bluetooth: {len(devices)} aparelhos encontrados na vizinhança.")
+        return jsonify({"status": "success", "devices": devices})
+    except Exception as e:
+        add_log("Erro no rádio Bluetooth. Certifique-se que está ligado.", log_type="error")
+        return jsonify({"status": "error", "devices": []})
+
 def attack_task(attack_type, bssid, channel, essid, privacy):
     vendor = identify_vendor(bssid)
     _, advice = analyze_vulnerabilities(vendor, essid, privacy)

