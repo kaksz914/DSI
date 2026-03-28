@@ -11,6 +11,7 @@ import wifi_auditor
 from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot
 from dsi_sniffer import DSISniffer, spoof, scan_network
 from dsi_twin import DSITwin
+from dsi_defender import DSIDefender
 from dsi_ai import DSIAI
 
 app = Flask(__name__)
@@ -23,6 +24,7 @@ SCAN_PROCESS = None
 CSV_PREFIX = "web_scan_results"
 SESSION_LOGS = []
 SNIFFER_INSTANCE = None
+DEFENDER_INSTANCE = None
 SPOOF_ACTIVE = False
 TWIN_INSTANCE = None
 
@@ -69,7 +71,6 @@ def start_scan():
     global SCAN_PROCESS, CURRENT_MONITOR_IFACE
     if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error", "message": "Não armado."}), 400
     boost_signal(CURRENT_MONITOR_IFACE)
-    add_log("Radar Turbo (2.4/5/6GHz) ACIONADO.", log_type="cmd", is_command=True)
     run_command(f"rm -f {CSV_PREFIX}-01.*")
     cmd = f"airodump-ng --band abg --update 1 --manufacturer --output-format csv -w {CSV_PREFIX} {CURRENT_MONITOR_IFACE}"
     SCAN_PROCESS = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -112,24 +113,25 @@ def api_scan_network():
     devices = scan_network(iface)
     return jsonify({"status": "success", "devices": devices})
 
-@app.route('/api/bluetooth/scan', methods=['POST'])
-def api_scan_bluetooth():
-    add_log("Scan Bluetooth iniciado...", log_type="cmd", is_command=True)
-    try:
-        res = subprocess.run("hcitool scan", shell=True, capture_output=True, text=True, timeout=10)
-        devices = []
-        for line in res.stdout.split('\n')[1:]:
-            if line.strip():
-                parts = line.split('\t')
-                if len(parts) >= 3: devices.append({'mac': parts[1], 'name': parts[2]})
-        return jsonify({"status": "success", "devices": devices})
-    except: return jsonify({"status": "error", "devices": []})
+@app.route('/api/defender/start', methods=['POST'])
+def start_defender():
+    global CURRENT_MONITOR_IFACE, DEFENDER_INSTANCE
+    if not DEFENDER_INSTANCE:
+        iface = CURRENT_MONITOR_IFACE or "wlan0"
+        DEFENDER_INSTANCE = DSIDefender(iface, log_callback=add_log)
+        DEFENDER_INSTANCE.start()
+    return jsonify({"status": "success"})
+
+@app.route('/api/defender/stop', methods=['POST'])
+def stop_defender():
+    global DEFENDER_INSTANCE
+    if DEFENDER_INSTANCE: DEFENDER_INSTANCE.stop(); DEFENDER_INSTANCE = None
+    return jsonify({"status": "success"})
 
 def attack_task(attack_type, bssid, channel, essid, privacy):
     vendor = identify_vendor(bssid); _, advice = analyze_vulnerabilities(vendor, essid, privacy)
-    ai_advice = BRAIN.get_strategy(bssid)
     add_log(f"COMBATE INICIADO: {essid} ({vendor})", log_type="cmd", is_command=True)
-    add_log(f"DSI INTEL: {advice}"); add_log(f"DSI NEURAL NET: {ai_advice}", log_type="info")
+    add_log(f"DSI INTEL: {advice}")
     prefix = f"web_capture_{essid.replace(' ', '_')}"; cap_file = None
     if attack_type == 'wps': capture_wps(CURRENT_MONITOR_IFACE, bssid, channel); return
     if attack_type == 'ghost': start_ghost_attack(CURRENT_MONITOR_IFACE, essid); return
