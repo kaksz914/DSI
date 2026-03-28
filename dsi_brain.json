@@ -1,0 +1,66 @@
+{
+    "30:91:8F:D2:82:9D": {
+        "essid": "Unknown",
+        "history": [
+            {
+                "date": "2026-03-28 10:51:32",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 60,
+                    "intensity": 15
+                },
+                "details": "Falha"
+            },
+            {
+                "date": "2026-03-28 10:53:05",
+                "attack": "handshake",
+                "success": false,
+                "params": {
+                    "deauth_count": 10,
+                    "timeout": 30,
+                    "tool": "aireplay"
+                },
+                "details": "Falha"
+            },
+            {
+                "date": "2026-03-28 10:55:05",
+                "attack": "vetorx",
+                "success": false,
+                "params": {
+                    "timeout": 120,
+                    "intensity": 31
+                },
+                "details": "Falha"
+            },
+            {
+                "date": "2026-03-28 11:00:05",
+                "attack": "wps",
+                "success": false,
+                "params": {
+                    "timeout": 300
+                },
+                "details": "Falha"
+            },
+            {
+                "date": "2026-03-28 11:01:05",
+                "attack": "ghost",
+                "success": false,
+                "params": {
+                    "timeout": 60
+                },
+                "details": "Fantasma"
+            }
+        ],
+        "best_vector": null,
+        "best_params": null,
+        "resistance_score": 5,
+        "failed_vectors": [
+            "pmkid",
+            "handshake",
+            "vetorx",
+            "wps",
+            "ghost"
+        ]
+    }
+}

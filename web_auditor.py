@@ -218,6 +218,13 @@ def run_update():
     threading.Thread(target=update_zero_day).start()
     return jsonify({"status": "success", "message": "Iniciando atualização de arsenal Zero-Day..."})
 
+@app.route('/api/autopilot/stop', methods=['POST'])
+def stop_autopilot():
+    import wifi_auditor
+    wifi_auditor.AUTOPILOT_ACTIVE = False
+    add_log("Sinal de interrupção enviado ao Autopiloto.", log_type="warning")
+    return jsonify({"status": "success"})
+
 @app.route('/api/restore', methods=['POST'])
 def restore():
     global CURRENT_MONITOR_IFACE, CURRENT_MANAGED_IFACE, SCAN_PROCESS

