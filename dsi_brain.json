@@ -50,11 +50,311 @@
                     "timeout": 60
                 },
                 "details": "Fantasma"
+            },
+            {
+                "date": "2026-03-28 13:23:42",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 180,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:27:24",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 220,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:31:26",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 240,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:35:48",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 260,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:40:31",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 280,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:45:33",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 300,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:50:55",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 320,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 13:56:37",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 340,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:02:39",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 360,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:09:01",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 380,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:15:43",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 400,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:22:45",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 420,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:30:08",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 440,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:37:50",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 460,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:45:52",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 480,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 14:54:14",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 500,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 15:02:56",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 520,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 15:11:58",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 540,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 15:21:20",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 560,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 15:31:03",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 580,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 15:41:05",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 600,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 15:51:27",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 620,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 16:02:09",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 640,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 16:13:11",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 660,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 16:24:33",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 680,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 16:36:15",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 700,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 16:48:17",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 720,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 17:00:40",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 740,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 17:13:22",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 760,
+                    "intensity": 45
+                },
+                "details": "Resistido"
+            },
+            {
+                "date": "2026-03-28 17:26:24",
+                "attack": "pmkid",
+                "success": false,
+                "params": {
+                    "timeout": 780,
+                    "intensity": 45
+                },
+                "details": "Resistido"
             }
         ],
         "best_vector": null,
         "best_params": null,
-        "resistance_score": 5,
+        "resistance_score": 35,
         "failed_vectors": [
             "pmkid",
             "handshake",
