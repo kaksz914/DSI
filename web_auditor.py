@@ -142,12 +142,10 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     if attack_type == 'autopilot': 
         cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
         if cap_file == "WPS_SUCCESS":
-            BRAIN.learn(bssid, essid, 'autopilot-wps', True)
             return
-        elif cap_file:
-            BRAIN.learn(bssid, essid, 'autopilot-capture', True)
-        else:
-            BRAIN.learn(bssid, essid, 'autopilot-failed', False)
+        elif not cap_file:
+            add_log("A IA Esgotou as táticas de rádio. Recomenda-se Vetor EVIL TWIN.", log_type="warning")
+            return
     elif attack_type == 'vetorx': 
         cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
         BRAIN.learn(bssid, essid, 'vetorx', cap_file is not None)

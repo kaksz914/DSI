@@ -207,16 +207,45 @@ def start_evil_twin(interface, essid):
     supreme_log("Evil Twin: Recomenda-se ferramenta 'airgeddon'.", log_type="info")
 
 def run_autopilot(interface, target):
-    supreme_log(f"AUTOPILOTO ATIVADO: Alvo {target['essid']}", log_type="cmd")
+    from dsi_ai import DSIAI
+    brain = DSIAI()
+    supreme_log(f"MODO AUTOPILOTO ATIVADO: Alvo {target['essid']}", log_type="cmd")
     prefix = f"capture_{target['essid']}"
-    cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix)
-    if cap: return cap
-    cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix)
-    if cap: return cap
-    if capture_wps(interface, target['bssid'], target['channel']): return "WPS_SUCCESS"
-    if os.path.exists("/tmp/dsi_injection_ok"):
-        cap = capture_handshake(interface, target['bssid'], target['channel'], prefix)
-        if cap: return cap
+    hw_ok = os.path.exists("/tmp/dsi_injection_ok")
+    
+    max_attempts = 5
+    
+    for attempt in range(max_attempts):
+        supreme_log(f"🧠 IA calculando estratégia (Ciclo {attempt+1}/{max_attempts})...", log_type="info")
+        attack_type, params = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok)
+        
+        supreme_log(f"🤖 IA Decidiu: Aplicando vetor [{attack_type.upper()}] com parâmetros ótimos.", log_type="cmd")
+        
+        cap = None
+        if attack_type == 'pmkid':
+            cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'handshake':
+            cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'vetorx':
+            cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'wps':
+            if capture_wps(interface, target['bssid'], target['channel'], params):
+                brain.learn(target['bssid'], target['essid'], attack_type, True, params, "Senha extraída via PIN")
+                return "WPS_SUCCESS"
+        elif attack_type == 'ghost':
+            start_ghost_attack(interface, target['essid'], params)
+            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Ataque preparatório finalizado")
+            continue # Fantasma não captura nada sozinho
+            
+        if cap:
+            supreme_log(f"🏆 VITÓRIA AUTOPILOTO! A IA quebrou a defesa.")
+            brain.learn(target['bssid'], target['essid'], attack_type, True, params, f"Captura via {attack_type}")
+            return cap
+        else:
+            supreme_log(f"📉 Vetor resistido. A IA memorizou a falha.")
+            brain.learn(target['bssid'], target['essid'], attack_type, False, params, "Alvo resistiu")
+            
+    supreme_log("🚨 FIM DO CICLO AUTOPILOTO. O alvo resistiu a todas as estratégias mapeadas pela IA.", log_type="error")
     return None
 
 def scan_networks(monitor_interface):
