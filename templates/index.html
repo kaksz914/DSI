@@ -243,9 +243,14 @@
                     <button class="btn" id="btnArmar" style="display:none;" onclick="armInterface()"><i class="fas fa-shield-alt"></i> Injetar Driver Monitor</button>
                 </div>
                 <div id="statusHardware" style="margin-top:15px; font-size:0.85em;"></div>
-                <button class="btn" style="margin-top:10px; border-color:var(--warning); color:var(--warning);" onclick="fixWifi6()">
-                    <i class="fas fa-stethoscope"></i> Diagnóstico Wi-Fi 6
-                </button>
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <button class="btn" style="border-color:var(--warning); color:var(--warning);" onclick="fixWifi6()">
+                        <i class="fas fa-stethoscope"></i> Diagnóstico Wi-Fi 6
+                    </button>
+                    <button class="btn" style="border-color:var(--secondary); color:var(--secondary);" onclick="updateZeroDay()">
+                        <i class="fas fa-cloud-download-alt"></i> Atualizar Arsenal (Zero-Day)
+                    </button>
+                </div>
             </div>
             
             <div class="panel">
@@ -590,6 +595,13 @@
             if(confirm("O sistema tentará identificar e instalar drivers para o seu adaptador Wi-Fi 6. Isso pode demorar e requer conexão à internet (via cabo). Prosseguir?")) {
                 switchView('logs');
                 await fetch('/api/fix/wifi6', { method: 'POST' });
+            }
+        }
+
+        async function updateZeroDay() {
+            if(confirm("Iniciando Módulo de Atualização Zero-Day: O sistema baixará as últimas ferramentas, dicionários de senhas e a versão mais recente do DSI Master direto do GitHub. Certifique-se de estar conectado à internet. Prosseguir?")) {
+                switchView('logs');
+                await fetch('/api/update', { method: 'POST' });
             }
         }
     </script>
