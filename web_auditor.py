@@ -11,6 +11,7 @@ import wifi_auditor
 from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot, update_zero_day
 from dsi_sniffer import DSISniffer, spoof, scan_network
 from dsi_twin import DSITwin
+from dsi_defender import DSIDefender
 from dsi_ai import DSIAI
 
 app = Flask(__name__)
