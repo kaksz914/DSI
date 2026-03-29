@@ -9,9 +9,20 @@ Este guia documenta o funcionamento da ferramenta `wifi_auditor.py` e os conceit
 ## 1. Pré-requisitos
 A ferramenta foi projetada para rodar em ambientes Linux (Kali Linux, Parrot OS, Ubuntu, etc).
 
-*   **Adaptador Wi-Fi com suporte a Modo Monitor:** Nem todas as placas de rede conseguem "escutar" o tráfego do ar. Você precisa de um chipset compatível (ex: Atheros AR9271, Ralink RT5370, Realtek RTL8812AU).
+*   **Adaptador Wi-Fi com suporte a Modo Monitor:** Nem todas as placas de rede conseguem "escutar" o tráfego do ar. Você precisa de um chipset compatível (ex: Atheros AR9271, Ralink RT5370, Realtek RTL8812AU, **AIC8800 Wi-Fi 6**).
+
+## 1.1 Suporte Especial Wi-Fi 6 (AX)
+Este sistema agora possui suporte otimizado para adaptadores Wi-Fi 6 (como o AIC8800). 
+*   **Vantagem:** Maior sensibilidade e suporte a canais modernos.
+*   **Ataque AX:** Em redes Wi-Fi 6, o PMF (Protected Management Frames) é obrigatório, o que impede ataques de deauth tradicionais. O sistema automaticamente alterna para o **Vetor AX (Captura PMKID)** que funciona passivamente sem precisar desconectar ninguém.
 *   **Aircrack-ng Suite:** O script automatiza as ferramentas deste pacote. Se não estiver instalado, o script tentará instalá-lo automaticamente via `apt`.
 *   **Permissões de Root:** Você deve executar o script usando `sudo` para ter controle sobre a placa de rede.
+
+## 1.2 Gerenciamento de Múltiplas Interfaces (Surgical Mode)
+A versão 4.0 introduz o **Modo Cirúrgico**, que permite:
+*   **Interface A (wlan0):** Manter a conexão com a Internet e o Dashboard Web.
+*   **Interface B (wlan1/USB):** Realizar ataques, varreduras e deauth sem derrubar o Dashboard.
+*   **Prevenção de Quedas:** O sistema agora usa `nmcli` para desativar o gerenciamento apenas da placa alvo, mantendo o `NetworkManager` ativo para as outras interfaces de rede.
 
 ## 2. Visão Geral do Processo (O que a ferramenta faz)
 

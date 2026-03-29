@@ -45,17 +45,21 @@ class DSIAI:
                 return "IA: Resistência Crítica + Hardware Limitado. A única chance é o EVIL TWIN."
         return "IA: Calculando vetores..."
 
-    def suggest_next_attack(self, bssid, hw_injection_ok=True):
+    def suggest_next_attack(self, bssid, hw_injection_ok=True, target=None):
         if bssid not in self.memory:
             self.memory[bssid] = {"essid": "Unknown", "history": [], "best_vector": None, "resistance": 0, "failed_vectors": []}
         mem = self.memory[bssid]
         
-        if mem["best_vector"] and (hw_injection_ok or mem["best_vector"] in ['pmkid', 'wps']):
+        if mem["best_vector"] and (hw_injection_ok or mem["best_vector"] in ['pmkid', 'wps', 'pmkid_v6']):
             return mem["best_vector"], {}
 
         available = ['pmkid', 'wps']
         if hw_injection_ok: available += ['vetorx', 'handshake', 'ghost']
         
+        # Prioriza PMKID para Wi-Fi 6
+        if target and target.get('wifi6', False):
+            available = ['pmkid_v6'] + available
+            
         # Filtra vetores que já falharam
         untried = [v for v in available if v not in mem["failed_vectors"]]
         

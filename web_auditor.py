@@ -50,25 +50,40 @@ def get_report():
     lines = "".join([f"<div style='margin-bottom:5px; color:{'#ff00ff' if l['type']=='cmd' else '#00ccff' if l['type']=='info' else '#ff3300'}'>[{l['time']}] {l['msg']}</div>" for l in SESSION_LOGS])
     return f"<html><body style='background:#050505; color:#00ff00; font-family:monospace; padding:40px;'><h1>RELATÓRIO DSI SUPREMO</h1><hr>{lines}</body></html>"
 
+def get_internet_interface():
+    """ Identifica qual interface está fornecendo internet no momento """
+    stdout, _ = run_command("ip route show default")
+    if stdout and "default via" in stdout:
+        parts = stdout.split()
+        if len(parts) >= 5: return parts[4]
+    return None
+
 @app.route('/api/interfaces', methods=['GET'])
 def get_interfaces():
+    # Identifica a interface de internet atual
+    internet_iface = get_internet_interface()
+    add_log(f"Sincronizando hardware... (Internet: {internet_iface})", log_type="info")
+    
     # A função principal agora retorna uma lista de dicionários
     interfaces_list = wifi_auditor.get_wifi_interface()
     
     if not interfaces_list:
-        return jsonify({
-            "status": "success",
-            "interfaces": [],
-            "full_data": [],
-            "os_type": "linux"
-        })
+        add_log("Nenhuma interface Wi-Fi detectada pelo kernel.", log_type="error")
+        return jsonify({"status": "success", "interfaces": [], "full_data": [], "os_type": "linux"})
+
+    # Marca qual interface tem internet
+    for iface in interfaces_list:
+        iface['has_internet'] = (iface['name'] == internet_iface)
+
+    add_log(f"Mapeamento concluído: {len(interfaces_list)} interfaces encontradas.", log_type="info")
 
     # Para o endpoint antigo, mantemos a compatibilidade
     return jsonify({
         "status": "success", 
         "interfaces": [i['name'] for i in interfaces_list],
-        "full_data": interfaces_list, # Enviamos os dados completos para a nova UI
-        "os_type": "linux"
+        "full_data": interfaces_list,
+        "os_type": "linux",
+        "internet_iface": internet_iface
     })
 
 @app.route('/api/start_monitor', methods=['POST'])
@@ -88,7 +103,8 @@ def start_scan():
     boost_signal(CURRENT_MONITOR_IFACE)
     add_log("Radar Turbo (2.4/5/6GHz) ACIONADO.", log_type="cmd", is_command=True)
     run_command(f"rm -f {CSV_PREFIX}-01.*")
-    cmd = f"airodump-ng --band abg --update 1 --manufacturer --output-format csv -w {CSV_PREFIX} {CURRENT_MONITOR_IFACE}"
+    # Adicionado sudo e write-interval para maior estabilidade
+    cmd = f"sudo airodump-ng --band abg --update 1 --write-interval 1 --manufacturer --output-format csv -w {CSV_PREFIX} {CURRENT_MONITOR_IFACE}"
     SCAN_PROCESS = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return jsonify({"status": "success"})
 
@@ -101,20 +117,57 @@ def stop_scan():
 
 @app.route('/api/get_networks', methods=['GET'])
 def get_networks():
-    csv_file = f"{CSV_PREFIX}-01.csv"; networks = []
+    csv_file = f"{CSV_PREFIX}-01.csv"
+    networks = []
+    clients_per_ap = {}
+    
     if os.path.exists(csv_file):
         try:
             with open(csv_file, 'r', encoding='utf-8', errors='ignore') as f:
-                reader = csv.reader(f); in_ap = False
+                reader = csv.reader(f)
+                in_ap = False
+                in_station = False
                 for row in reader:
-                    if not row or len(row) < 14: continue
-                    if row[0].strip() == "BSSID": in_ap = True; continue
-                    if in_ap and not row[0].strip() == "Station MAC":
-                        bssid = row[0].strip(); essid = row[13].strip()
+                    if not row: continue
+                    
+                    # Seção de APs
+                    if row[0].strip() == "BSSID":
+                        in_ap = True
+                        in_station = False
+                        continue
+                    
+                    # Seção de Estações (Clientes)
+                    if row[0].strip() == "Station MAC":
+                        in_ap = False
+                        in_station = True
+                        continue
+                    
+                    if in_ap and len(row) >= 14:
+                        bssid = row[0].strip()
+                        essid = row[13].strip()
                         name = essid if (essid and essid != "\x00") else f"<Oculta: {bssid[-5:]}>"
-                        networks.append({'bssid': bssid, 'signal': row[8].strip(),'channel': row[3].strip(), 'privacy': row[5].strip(), 'essid': name, 'vendor': identify_vendor(bssid)})
-                    elif row[0].strip() == "Station MAC": break
-        except: pass
+                        networks.append({
+                            'bssid': bssid, 
+                            'signal': row[8].strip(),
+                            'channel': row[3].strip(), 
+                            'privacy': row[5].strip(), 
+                            'essid': name, 
+                            'vendor': identify_vendor(bssid),
+                            'clients': 0
+                        })
+                    
+                    if in_station and len(row) >= 6:
+                        ap_bssid = row[5].strip()
+                        if ap_bssid and ap_bssid != "(not associated)":
+                            clients_per_ap[ap_bssid] = clients_per_ap.get(ap_bssid, 0) + 1
+                            
+        except Exception as e:
+            add_log(f"Erro ao ler redes: {str(e)}", log_type="error")
+
+    # Mapeia contagem de clientes para as redes
+    for net in networks:
+        net['clients'] = clients_per_ap.get(net['bssid'], 0)
+
     networks.sort(key=lambda x: int(x['signal']) if x['signal'].lstrip('-').isdigit() else -100, reverse=True)
     return jsonify({"status": "success", "networks": networks})
 
@@ -155,6 +208,8 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
         start_wifite_expert(CURRENT_MONITOR_IFACE)
     elif attack_type == 'vetorx':
         cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    elif attack_type == 'twin':
+        start_evil_twin(CURRENT_MANAGED_IFACE or "wlan0", essid)
     else: # handshake, pmkid...
         cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
     if cap_file:
@@ -237,8 +292,18 @@ def run_update():
 @app.route('/api/restore', methods=['POST'])
 def restore():
     global CURRENT_MONITOR_IFACE, SCAN_PROCESS
-    if SCAN_PROCESS: SCAN_PROCESS.terminate(); run_command("killall airodump-ng", sudo=True); SCAN_PROCESS = None
-    if CURRENT_MONITOR_IFACE: set_managed_mode(CURRENT_MONITOR_IFACE); CURRENT_MONITOR_IFACE = None
+    if SCAN_PROCESS: 
+        try: SCAN_PROCESS.terminate()
+        except: pass
+        run_command("killall airodump-ng", sudo=True)
+        SCAN_PROCESS = None
+    
+    # Restauração agressiva: tenta restaurar todas as interfaces possíveis
+    interfaces = wifi_auditor.get_wifi_interface()
+    for iface in interfaces:
+        set_managed_mode(iface['name'])
+    
+    CURRENT_MONITOR_IFACE = None
     return jsonify({"status": "success"})
 
 if __name__ == '__main__':

