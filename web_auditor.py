@@ -54,6 +54,15 @@ def get_report():
 def get_interfaces():
     # A função principal agora retorna uma lista de dicionários
     interfaces_list = wifi_auditor.get_wifi_interface()
+    
+    if not interfaces_list:
+        return jsonify({
+            "status": "success",
+            "interfaces": [],
+            "full_data": [],
+            "os_type": "linux"
+        })
+
     # Para o endpoint antigo, mantemos a compatibilidade
     return jsonify({
         "status": "success", 
