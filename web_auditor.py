@@ -340,6 +340,11 @@ def restore():
     CURRENT_MONITOR_IFACE = None
     return jsonify({"status": "success"})
 
+@app.route('/api/crack/bulk', methods=['POST'])
+def crack_bulk():
+    threading.Thread(target=wifi_auditor.scan_and_crack_all).start()
+    return jsonify({"status": "success"})
+
 if __name__ == '__main__':
     PORT = 8080
     print("\n" + "="*50)

