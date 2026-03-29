@@ -49,7 +49,10 @@
         <div class="nav-item" onclick="switchView('topology')"><i class="fas fa-network-wired"></i> Topologia</div>
         <div class="nav-item" onclick="switchView('vault')"><i class="fas fa-user-secret"></i> Vault de Dados</div>
         <div class="nav-item" onclick="switchView('logs')"><i class="fas fa-terminal"></i> Console C2</div>
-        <div style="margin-top:auto; padding: 20px;"><button class="btn btn-danger" style="width:100%" onclick="restaurarSistema()">RESTAURAR REDE</button></div>
+        <div style="margin-top:auto; padding: 20px;">
+            <button class="btn btn-warning" style="width:100%; margin-bottom:10px;" onclick="runPivot()">INCURSÃO INTERNA (PIVOT)</button>
+            <button class="btn btn-danger" style="width:100%" onclick="restaurarSistema()">RESTAURAR REDE</button>
+        </div>
     </nav>
 
     <main class="main-content">
@@ -280,6 +283,12 @@
             if(!confirm("Restaurar rede e religar internet?")) return;
             await fetch('/api/restore', { method: 'POST' });
             location.reload();
+        }
+
+        async function runPivot() {
+            if(!confirm("Iniciar varredura interna na rede conectada?")) return;
+            switchView('logs');
+            await fetch('/api/pivot/start', { method: 'POST' });
         }
 
         async function fixWifi6() { await fetch('/api/fix/wifi6', { method: 'POST' }); switchView('logs'); }

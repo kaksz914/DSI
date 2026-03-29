@@ -299,7 +299,17 @@ def run_update():
     threading.Thread(target=update_zero_day).start()
     return jsonify({"status": "success"})
 
-@app.route('/api/restore', methods=['POST'])
+from dsi_post_exploit import DSIPivot
+
+# ... (dentro das rotas)
+
+@app.route('/api/pivot/start', methods=['POST'])
+def start_pivot():
+    global CURRENT_MANAGED_IFACE
+    iface = CURRENT_MANAGED_IFACE or "wlan0"
+    pivot = DSIPivot(iface, log_callback=add_log)
+    pivot.start_auto_pivot()
+    return jsonify({"status": "success"})
 def restore():
     global CURRENT_MONITOR_IFACE, SCAN_PROCESS
     if SCAN_PROCESS: 
@@ -317,4 +327,9 @@ def restore():
     return jsonify({"status": "success"})
 
 if __name__ == '__main__':
+    print("\n" + "="*50)
+    print("DSI SUPREME COMMAND CENTER v7.1 MAGISTRADO")
+    print("SERVIDOR ATIVO EM: http://localhost:5000")
+    print("Aguardando conexões no Dashboard...")
+    print("="*50 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
