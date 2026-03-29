@@ -51,9 +51,15 @@ def get_report():
 
 @app.route('/api/interfaces', methods=['GET'])
 def get_interfaces():
-    stdout, _ = run_command("iw dev | awk '$1==\"Interface\"{print $2}'")
-    interfaces = stdout.split('\n') if stdout else []
-    return jsonify({"status": "success", "interfaces": [i for i in interfaces if i], "os_type": "linux"})
+    # A função principal agora retorna uma lista de dicionários
+    interfaces_list = wifi_auditor.get_wifi_interface()
+    # Para o endpoint antigo, mantemos a compatibilidade
+    return jsonify({
+        "status": "success", 
+        "interfaces": [i['name'] for i in interfaces_list],
+        "full_data": interfaces_list, # Enviamos os dados completos para a nova UI
+        "os_type": "linux"
+    })
 
 @app.route('/api/start_monitor', methods=['POST'])
 def start_monitor():
