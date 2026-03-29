@@ -362,5 +362,49 @@
             "wps",
             "ghost"
         ]
+    },
+    "0E:17:1B:27:15:24": {
+        "essid": "Unknown",
+        "history": [
+            {
+                "date": "2026-03-29 00:41:20",
+                "attack": "pmkid",
+                "success": false
+            },
+            {
+                "date": "2026-03-29 00:44:22",
+                "attack": "wps",
+                "success": false
+            },
+            {
+                "date": "2026-03-29 00:46:24",
+                "attack": "vetorx",
+                "success": false
+            },
+            {
+                "date": "2026-03-29 00:48:42",
+                "attack": "handshake",
+                "success": false
+            },
+            {
+                "date": "2026-03-29 00:48:44",
+                "attack": "ghost",
+                "success": false
+            },
+            {
+                "date": "2026-03-29 00:51:01",
+                "attack": "handshake",
+                "success": false
+            }
+        ],
+        "best_vector": null,
+        "resistance": 6,
+        "failed_vectors": [
+            "pmkid",
+            "wps",
+            "vetorx",
+            "handshake",
+            "ghost"
+        ]
     }
 }
