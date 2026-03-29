@@ -23,6 +23,7 @@ CURRENT_MANAGED_IFACE = None
 SCAN_PROCESS = None
 CSV_PREFIX = "web_scan_results"
 SESSION_LOGS = []
+SENSITIVE_DATA = []  # Novo: Armazena dados sensíveis capturados
 SNIFFER_INSTANCE = None
 DEFENDER_INSTANCE = None
 SPOOF_ACTIVE = False
@@ -32,7 +33,16 @@ def add_log(msg, log_type="info", is_command=False):
     timestamp = datetime.now().strftime("%H:%M:%S")
     log_entry = {"time": timestamp, "msg": msg, "type": log_type, "cmd": is_command}
     SESSION_LOGS.append(log_entry)
+    
+    # Se for dado sensível (marcado com !!! no sniffer), salva no Vault
+    if "!!!" in msg or "[DADO SENSÍVEL" in msg or "[CREDENTIAL" in msg:
+        SENSITIVE_DATA.append(log_entry)
+        
     print(f"[{timestamp}] [{log_type.upper()}] {msg}")
+
+@app.route('/api/vault', methods=['GET'])
+def get_vault():
+    return jsonify({"status": "success", "vault": SENSITIVE_DATA})
 
 wifi_auditor.WEB_CALLBACK = add_log
 

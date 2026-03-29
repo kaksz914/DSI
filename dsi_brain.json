@@ -406,5 +406,18 @@
             "handshake",
             "ghost"
         ]
+    },
+    "FE:22:F4:9E:5D:82": {
+        "essid": "Furtado_guest",
+        "history": [
+            {
+                "date": "2026-03-29 14:03:34",
+                "attack": "autopilot",
+                "success": true
+            }
+        ],
+        "best_vector": "autopilot",
+        "resistance": 0,
+        "failed_vectors": []
     }
 }
