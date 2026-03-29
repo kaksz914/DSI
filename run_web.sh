@@ -35,8 +35,22 @@ echo -e "${YELLOW}3. Vá até o seu Navegador (Firefox/Chrome) e acesse:${NC}"
 echo -e "${GREEN}       http://localhost:8080                     ${NC}"
 echo -e "${GREEN}=================================================${NC}"
 
-# Abre o navegador automaticamente (Funciona na maioria das distros Desktop)
-(sleep 2 && xdg-open "http://localhost:8080" 2>/dev/null || sensible-browser "http://localhost:8080" 2>/dev/null) &
+# Tenta abrir o navegador como o usuário real (não root) para evitar erros de segurança do Chrome/Firefox
+REAL_USER=${SUDO_USER:-$USER}
+USER_HOME=$(eval echo ~$REAL_USER)
+
+# Tenta capturar DISPLAY e XAUTHORITY se não estiverem definidos (comum em sudo)
+export DISPLAY=${DISPLAY:-:0}
+export XAUTHORITY=${XAUTHORITY:-$USER_HOME/.Xauthority}
+
+if [ "$REAL_USER" != "root" ]; then
+    echo -e "${YELLOW}[*] Tentando lançar Dashboard no navegador como usuário $REAL_USER...${NC}"
+    # Usa sudo -u para rodar o navegador como usuário, passando DISPLAY e XAUTHORITY
+    (sleep 4 && sudo -u "$REAL_USER" DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" xdg-open "http://localhost:8080" 2>/dev/null || \
+     sudo -u "$REAL_USER" DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" sensible-browser "http://localhost:8080" 2>/dev/null) &
+else
+    (sleep 4 && xdg-open "http://localhost:8080" 2>/dev/null || sensible-browser "http://localhost:8080" 2>/dev/null) &
+fi
 
 # Lança a aplicação web controladora
 exec python3 web_auditor.py
