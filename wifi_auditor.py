@@ -37,7 +37,7 @@ OUI_DB = {
     "2C:33:11": "SpaceX (Starlink)", "B4:FB:E4": "SpaceX (Starlink)", "52:B6:A9": "SpaceX (Starlink)",
     "28:AD:3E": "Huawei", "E4:C7:22": "Huawei", "80:B6:86": "Huawei", "78:1D:4A": "Huawei",
     "00:1F:A3": "Cisco", "C0:25:06": "Cisco", "00:16:B6": "Cisco", "00:0C:42": "MikroTik",
-    "FC:22:F4": "Zyxel", "00:E0:4C": "Realtek", "A4:91:B1": "Intelbras", "00:14:6C": "Netgear"
+    "FC:22:F4": "Zyxel", "00:E0:4C": "Realtek", "A4:91:B1": "Intelbras"
 }
 
 def identify_vendor(bssid):
@@ -48,7 +48,7 @@ def analyze_vulnerabilities(vendor, essid, privacy):
     vulns, advice = [], ""
     injection_works = os.path.exists("/tmp/dsi_injection_ok")
     if "Starlink" in vendor or "Starlink" in essid:
-        advice = "ALVO NÍVEL 10 (STARLINK). PMF Ativo. Use VETOR X ou AUTOPILOTO."
+        advice = "ALVO NÍVEL 10 (STARLINK). Defesas PMF Ativas. Use VETOR X ou AUTOPILOTO."
         vulns.append("PMF (802.11w)")
     elif not injection_works:
         advice = "GARGALO DE HARDWARE: Injeção falhou. Autopiloto priorizando vetores passivos."
@@ -65,7 +65,7 @@ def test_injection(interface):
         supreme_log("HARDWARE VALIDADO PARA ATAQUE ATIVO.", log_type="info")
         with open("/tmp/dsi_injection_ok", "w") as f: f.write("ok")
         return True
-    supreme_log("HARDWARE LIMITADO: Injeção falhou.", log_type="error")
+    supreme_log("HARDWARE LIMITADO: Injeção não detectada pelo Kernel.", log_type="error")
     return False
 
 def boost_signal(interface):
@@ -73,6 +73,39 @@ def boost_signal(interface):
     run_command(f"ip link set {interface} down", sudo=True)
     run_command(f"iw dev {interface} set txpower fixed 3000", sudo=True)
     run_command(f"ip link set {interface} up", sudo=True)
+
+def fix_drivers_wifi6(auto_confirm=False):
+    supreme_log("DRIVER UNIFIER: Iniciando diagnóstico de drivers...", log_type="cmd")
+    # Mapeia IDs USB para Chipsets e repositórios de drivers
+    chipset_map = {
+        "0bda:8852": "RTL8852AU", "0bda:8832": "RTL8832AU", # Realtek
+        "0e8d:7961": "MT7921AU",                           # MediaTek
+        "0cf3:9271": "AR9271"                              # Atheros (Clássico)
+    }
+    stdout_usb, _ = run_command("lsusb")
+    chipset_to_install = None
+    for line in stdout_usb.split('\n'):
+        for usb_id, chipset in chipset_map.items():
+            if usb_id in line:
+                chipset_to_install = chipset
+                break
+        if chipset_to_install: break
+    if not chipset_to_install:
+        supreme_log("Nenhum adaptador com drivers de comunidade conhecidos foi detectado.", log_type="error")
+        return False
+    supreme_log(f"Adaptador detectado: {chipset_to_install}", log_type="info")
+    if auto_confirm or Confirm.ask(f"Deseja instalar os drivers para {chipset_to_install}?"):
+        with console.status(f"[bold cyan]Compilando driver para {chipset_to_install}...", spinner="dots"):
+            run_command("apt update && apt install -y git build-essential dkms", sudo=True)
+            if "RTL8852AU" in chipset_to_install:
+                run_command("git clone https://github.com/lwfinger/rtl8852au.git /tmp/driver && cd /tmp/driver && make && make install", sudo=True)
+            elif "RTL8832AU" in chipset_to_install:
+                 run_command("git clone https://github.com/lwfinger/rtl8832au.git /tmp/driver && cd /tmp/driver && make && make install", sudo=True)
+            elif "MT7921AU" in chipset_to_install:
+                 run_command("git clone https://github.com/morrownr/7921au-driver.git /tmp/driver && cd /tmp/driver && ./install-driver.sh", sudo=True)
+            supreme_log("Instalação concluída. REINICIE o computador para ativar o novo driver.", log_type="info")
+        return True
+    return False
 
 def run_command(command, sudo=False, capture_output=True, text=True):
     if sudo: command = "sudo " + command
