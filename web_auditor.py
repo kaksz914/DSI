@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, jsonify
 
 # Importa o núcleo
 import wifi_auditor
-from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot
+from wifi_auditor import run_command, set_monitor_mode, set_managed_mode, capture_pmkid, capture_handshake, crack_hash, identify_vendor, analyze_vulnerabilities, capture_wps, fix_drivers_wifi6, start_ghost_attack, boost_signal, start_wifite_expert, start_evil_twin, capture_vetor_x, run_autopilot, update_zero_day
 from dsi_sniffer import DSISniffer, spoof, scan_network
 from dsi_twin import DSITwin
 from dsi_ai import DSIAI
@@ -134,9 +134,7 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     ai_advice = BRAIN.get_strategy(bssid, os.path.exists("/tmp/dsi_injection_ok"))
     add_log(f"COMBATE INICIADO: {essid} ({identify_vendor(bssid)})", log_type="cmd", is_command=True)
     add_log(f"DSI NEURAL NET: {ai_advice}", log_type="info")
-    
     prefix = f"web_capture_{essid.replace(' ', '_')}"; cap_file = None
-    
     if attack_type == 'autopilot':
         cap_file = run_autopilot(CURRENT_MONITOR_IFACE, {"essid":essid, "bssid":bssid, "channel":channel})
     elif attack_type == 'wps':
@@ -149,7 +147,6 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
         cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
     else: # handshake, pmkid...
         cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
-        
     if cap_file:
         BRAIN.learn(bssid, essid, attack_type, True)
         if cap_file != "WPS_SUCCESS":
