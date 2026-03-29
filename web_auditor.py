@@ -310,6 +310,20 @@ def start_pivot():
     pivot = DSIPivot(iface, log_callback=add_log)
     pivot.start_auto_pivot()
     return jsonify({"status": "success"})
+
+@app.route('/api/bluetooth/toggle', methods=['POST'])
+def toggle_bluetooth():
+    action = request.get_json().get('action') # 'on' ou 'off'
+    if action == 'off':
+        run_command("rfkill block bluetooth", sudo=True)
+        run_command("systemctl stop bluetooth", sudo=True)
+        run_command("systemctl disable bluetooth", sudo=True)
+        add_log("Bluetooth DESATIVADO para evitar interferência Wi-Fi.", log_type="info")
+    else:
+        run_command("rfkill unblock bluetooth", sudo=True)
+        run_command("systemctl start bluetooth", sudo=True)
+        add_log("Bluetooth REATIVADO.", log_type="info")
+    return jsonify({"status": "success"})
 def restore():
     global CURRENT_MONITOR_IFACE, SCAN_PROCESS
     if SCAN_PROCESS: 
@@ -327,9 +341,17 @@ def restore():
     return jsonify({"status": "success"})
 
 if __name__ == '__main__':
+    PORT = 8080
     print("\n" + "="*50)
-    print("DSI SUPREME COMMAND CENTER v7.1 MAGISTRADO")
-    print("SERVIDOR ATIVO EM: http://localhost:5000")
-    print("Aguardando conexões no Dashboard...")
+    print("DSI SUPREME COMMAND CENTER v8.0 BLACK HAT")
+    print(f"SERVIDOR ATIVO EM: http://localhost:{PORT}")
+    print("Se não abrir automaticamente, copie o link acima.")
     print("="*50 + "\n")
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    
+    # Tenta rodar na porta 8080 para evitar conflitos com a 5000 (comum no MacOS/AirPlay)
+    try:
+        app.run(host='0.0.0.0', port=PORT, debug=False, threaded=True)
+    except Exception as e:
+        print(f"Erro ao iniciar servidor na porta {PORT}: {e}")
+        print("Tentando porta alternativa 8888...")
+        app.run(host='0.0.0.0', port=8888, debug=False, threaded=True)

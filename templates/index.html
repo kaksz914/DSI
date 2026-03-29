@@ -67,9 +67,11 @@
             </div>
             <div class="panel">
                 <div class="panel-title">Ferramentas de Manutenção</div>
-                <div style="display:flex; gap:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button class="btn" onclick="fixWifi6()">Wi-Fi 6 Doctor</button>
                     <button class="btn" onclick="updateZeroDay()">Atualizar Arsenal</button>
+                    <button class="btn" style="border-color:var(--warning); color:var(--warning);" onclick="toggleBluetooth('off')">Desligar Bluetooth</button>
+                    <button class="btn" style="border-color:var(--primary); color:var(--primary);" onclick="toggleBluetooth('on')">Ligar Bluetooth</button>
                 </div>
             </div>
         </section>
@@ -293,6 +295,14 @@
 
         async function fixWifi6() { await fetch('/api/fix/wifi6', { method: 'POST' }); switchView('logs'); }
         async function updateZeroDay() { await fetch('/api/update', { method: 'POST' }); switchView('logs'); }
+        async function toggleBluetooth(action) { 
+            await fetch('/api/bluetooth/toggle', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ action: action }) 
+            }); 
+            switchView('logs'); 
+        }
         async function toggleTwin() { const ssid = document.getElementById('twinSsid').value; await fetch('/api/twin/start', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ ssid: ssid }) }); switchView('logs'); }
     </script>
 </body>

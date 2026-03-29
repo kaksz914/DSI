@@ -32,11 +32,11 @@ echo -e "${GREEN}=================================================${NC}"
 echo -e "${YELLOW}1. O Servidor Local (C2) será iniciado agora.${NC}"
 echo -e "${YELLOW}2. Mantenha esta janela preta ABERTA.${NC}"
 echo -e "${YELLOW}3. Vá até o seu Navegador (Firefox/Chrome) e acesse:${NC}"
-echo -e "${GREEN}       http://localhost:5000                     ${NC}"
+echo -e "${GREEN}       http://localhost:8080                     ${NC}"
 echo -e "${GREEN}=================================================${NC}"
 
 # Abre o navegador automaticamente (Funciona na maioria das distros Desktop)
-(sleep 2 && xdg-open "http://localhost:5000" 2>/dev/null || sensible-browser "http://localhost:5000" 2>/dev/null) &
+(sleep 2 && xdg-open "http://localhost:8080" 2>/dev/null || sensible-browser "http://localhost:8080" 2>/dev/null) &
 
 # Lança a aplicação web controladora
 exec python3 web_auditor.py
