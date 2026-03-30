@@ -217,11 +217,13 @@ def attack_task(attack_type, bssid, channel, essid, privacy):
     elif attack_type == 'wifite':
         start_wifite_expert(CURRENT_MONITOR_IFACE)
     elif attack_type == 'vetorx':
-        cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+        cap_file = capture_vetor_x(CURRENT_MONITOR_IFACE, bssid, channel, "web_capture", essid)
     elif attack_type == 'twin':
         start_evil_twin(CURRENT_MANAGED_IFACE or "wlan0", essid)
-    else: # handshake, pmkid...
-        cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, prefix)
+    elif attack_type == 'pmkid':
+        cap_file = capture_pmkid(CURRENT_MONITOR_IFACE, bssid, channel, "web_capture", None, essid)
+    else: # handshake
+        cap_file = capture_handshake(CURRENT_MONITOR_IFACE, bssid, channel, "web_capture", None, essid)
     if cap_file:
         BRAIN.learn(bssid, essid, attack_type, True)
         if cap_file != "WPS_SUCCESS":

