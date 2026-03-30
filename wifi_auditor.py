@@ -418,11 +418,23 @@ def crack_hash_v7_expert(hash_file, bssid=None):
     essid_match = re.search(r"capture_([^_]+)", os.path.basename(hash_file))
     essid = essid_match.group(1) if essid_match else "Rede Desconhecida"
 
-    # Validação rigorosa do arquivo .cap
+    # Validação rigorosa do arquivo .cap (Handshakes clássicos)
     if hash_file.endswith(".cap"):
         res, _ = run_command(f"aircrack-ng {hash_file}")
         if res and ("1 handshake" not in res and "WPA (1 handshake)" not in res and "WPA (0 handshake)" in res):
-            supreme_log(f"CRACKER: Arquivo {hash_file} NÃO contém um handshake válido. Foi capturado 'lixo'. Abortando quebra deste arquivo.", log_type="error")
+            supreme_log(f"CRACKER [AUTO-CLEAN]: O arquivo {hash_file} é lixo (sem handshakes). Eliminando rasto...", log_type="error")
+            os.remove(hash_file)
+            return None
+
+    # Validação rigorosa do arquivo .16800 (PMKID)
+    if hash_file.endswith(".16800"):
+        if os.path.getsize(hash_file) < 10:  # PMKIDs válidos têm sempre mais de 10 bytes. Ficheiros vazios são lixo.
+            supreme_log(f"CRACKER [AUTO-CLEAN]: O arquivo PMKID {hash_file} está vazio/inválido (lixo). Eliminando rasto...", log_type="error")
+            os.remove(hash_file)
+            pcapng_associated = hash_file.replace(".16800", ".pcapng")
+            if os.path.exists(pcapng_associated):
+                os.remove(pcapng_associated)
+                supreme_log(f"CRACKER [AUTO-CLEAN]: Arquivo de captura bruta {pcapng_associated} também eliminado.", log_type="error")
             return None
 
     # Upload para Nuvem em paralelo (desabilitado se for lixo)
