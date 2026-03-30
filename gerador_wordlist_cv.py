@@ -2,7 +2,7 @@ import itertools
 import string
 
 def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
-    print('[+] Iniciando a geração da Wordlist CV Master Suprema (Kriol Raiz)...')
+    print('[+] Iniciando a geração da Wordlist CV Master Extrema (Badio + Sampadjudu + Palavrões)...')
     
     ilhas = ['santiago', 'saovicente', 'saonicolau', 'sal', 'boavista', 'fogo', 'santoantao', 'brava', 'maio', 'cv', 'caboverde', 'caboverdiano', 'kriol']
     
@@ -10,19 +10,29 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
     
     times = ['sporting', 'batuque', 'boavista', 'travadores', 'academica', 'mindelense', 'derby', 'fogo', 'amarante', 'vitoria', 'paulense']
     
-    # 1. EXPANSÃO: Gírias, Expressões e Comida em Crioulo Raiz
+    # 1. Gírias e cultura crioula padrão
     girias_kriol = [
         'morabeza', 'criolo', 'crioula', 'sabe', 'kriolu', 'sabura', 'festa', 'cvteledata', 'cabo',
         'funana', 'coladeira', 'morna', 'batuku', 'batuque', 'zouk', 'kizomba', 'sodade',
         'cachupa', 'catxupa', 'grogue', 'pontche', 'strela', 'txabeta', 'txuba', 'paxenxa',
         'fixe', 'manera', 'tudodretu', 'sabadu', 'domingu',
-        # Novas adições raiz:
-        'priguissa', 'rabola', 'xuxadera', 'cucuca', 'cuzcus', 'pastal', 'manduko',
+        'priguissa', 'rabola', 'cucuca', 'cuzcus', 'pastal', 'manduko',
         'fijon', 'xerem', 'canja', 'bafa', 'badiu', 'sampadjudu', 'dodu', 'doidu',
         'mininu', 'minina', 'rapaz', 'fidju', 'kuzé', 'keli', 'kelo', 'modi', 'undé',
         'dja', 'nha', 'bu', 'nho', 'nos', 'bsot', 'es', 'pamodi', 'purke', 'ma', 'si', 'nau',
         'katxorr', 'burru', 'porku', 'loku', 'dretu', 'fixi', 'kaxass', 'kopo',
         'finka', 'pe', 'mô', 'kabeça', 'odju', 'oridja', 'boka', 'denti', 'lingua'
+    ]
+
+    # 2. NOVAS ADIÇÕES: Léxico extremo (Palavrões, termos sexuais e gírias pesadas de CV)
+    palavros_kriol = [
+        'xuxadera', 'catota', 'cotota', 'pica', 'pika', 'fanadu', 'crica', 'krika', 
+        'conona', 'konona', 'tabanka', 'badia', 'xatiada', 'xatiadu', 'puta', 'kabra',
+        'kuzinha', 'fudidu', 'fudida', 'fdp', 'kuzão', 'merda', 'caralho', 'karalhu',
+        'bosta', 'bostinha', 'cagad', 'kagadu', 'cu', 'ku', 'rabo', 'rabu', 'bunda',
+        'mama', 'teta', 'mamae', 'papa', 'papai', 'nhafika', 'matxomba', 'panhon', 
+        'kanbada', 'ladrão', 'ladron', 'gatu', 'gatuno', 'bandido', 'bandidu',
+        'cabrão', 'kabron', 'corno', 'kornu', 'forsa', 'konta', 'dinheru', 'kumbu'
     ]
     
     nomes = ['joao', 'maria', 'jose', 'carlos', 'antonio', 'ana', 'jorge', 'manuel', 'helena', 'nelson', 'elson', 'elza', 'amilton', 'gilson', 'edilson', 'edson', 'neusa', 'sofia', 'catia', 'nadia', 'ruben', 'kevin', 'vanderlei', 'jailson', 'jandira', 'adilson', 'ivan', 'kleyton', 'kleiton', 'vanessa', 'daniela']
@@ -30,10 +40,11 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
     operadoras = ['cvmovel', 'unitel', 'tmais', 'teledata', 'starlink', 'router', 'internet', 'fibra', 'wifi']
     
     anos = [str(ano) for ano in range(1970, 2026)]
-    sufixos_comuns = ['123', '1234', '12345', '123456', '12345678', '123456789', '0000', '1111', '!', '@', '#', '!!', '@@', '##', '123!', '123@']
+    sufixos_comuns = ['123', '1234', '12345', '123456', '12345678', '123456789', '0000', '1111', '!', '@', '#', '!!', '@@', '##', '123!', '123@', '69', '666']
     prefixos_comuns = ['#', '@', '!']
     
-    palavras_base = ilhas + cidades + times + girias_kriol + nomes + operadoras
+    # Combinar tudo na base principal
+    palavras_base = ilhas + cidades + times + girias_kriol + palavros_kriol + nomes + operadoras
     
     senhas = set()
     
@@ -52,7 +63,7 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
             if len(combo1) >= 8: senhas.add(combo1)
             if len(combo2) >= 8: senhas.add(combo2)
 
-    # 3. Palavras + Anos (ex: catxupa2023)
+    # 3. Palavras + Anos (ex: xuxadera2023)
     for p in palavras_base:
         for a in anos:
             combo1 = p + a
@@ -60,7 +71,7 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
             if len(combo1) >= 8: senhas.add(combo1)
             if len(combo2) >= 8: senhas.add(combo2)
             
-    # 4. Anos + Palavras (ex: 2024xuxadera)
+    # 4. Anos + Palavras (ex: 2024catota)
     for p in palavras_base:
         for a in anos:
             combo1 = a + p
@@ -68,15 +79,15 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
             if len(combo1) >= 8: senhas.add(combo1)
             if len(combo2) >= 8: senhas.add(combo2)
 
-    # 5. Prefixos + Palavras + Sufixos (ex: @Rabola123)
+    # 5. Prefixos + Palavras + Sufixos (ex: @Krika123)
     for p in palavras_base:
         for pre in prefixos_comuns:
-            for suf in ['123', '1234']:
+            for suf in ['123', '1234', '69']:
                 combo = pre + p.capitalize() + suf
                 if len(combo) >= 8: senhas.add(combo)
 
-    # 6. Duas palavras combinadas (Amostragem para evitar estouro de memória)
-    # Limitando a palavras de até 6 caracteres para combinações
+    # 6. Duas palavras combinadas (Apenas palavras curtas para evitar explosão de RAM)
+    # Muito comum em senhas combinar nome + palavrão ou ofensa + número
     palavras_curtas = [w for w in palavras_base if len(w) <= 6]
     for p1 in palavras_curtas:
         for p2 in palavras_curtas:
@@ -86,15 +97,15 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
                 if len(combo1) >= 8: senhas.add(combo1)
                 if len(combo2) >= 8: senhas.add(combo2)
                 
-    # 7. Números de telefone e padrões numéricos comuns
+    # 7. Padrões Numéricos Puros
     senhas.update([
         '12345678', '123456789', '1234567890', '01234567', '00000000', '11111111', '87654321',
-        'qawsedrf', 'asdfghjkl', 'zxcvbnm', 'qwertyuiop'
+        'qawsedrf', 'asdfghjkl', 'zxcvbnm', 'qwertyuiop', '69696969'
     ])
     
-    # 8. L33t Speak básico para palavras da cultura (ex: c@txup@, xux@d3r@)
+    # 8. L33t Speak básico para os termos mais pesados (ex: c@t0t@, xux@d3r@)
     leet_map = {'a': '@', 'e': '3', 'i': '1', 'o': '0'}
-    leet_targets = ['cvmovel', 'unitel', 'starlink', 'santiago', 'mindelo', 'caboverde', 'morabeza', 'catxupa', 'xuxadera', 'priguissa', 'rabola']
+    leet_targets = ['catxupa', 'xuxadera', 'priguissa', 'rabola', 'catota', 'cotota', 'pica', 'fanadu', 'crica', 'konona', 'fudidu', 'merda', 'caralho', 'bosta']
     
     for p in leet_targets:
         leet_word = p
@@ -105,13 +116,14 @@ def gerar_wordlist_avancada(output_file='cv_wordlist_elite.txt'):
             senhas.add(leet_word.capitalize())
             senhas.add(leet_word + '123')
             senhas.add(leet_word + '!')
+            senhas.add(leet_word + '69')
 
     # Escreve o arquivo final
     with open(output_file, 'w', encoding='utf-8') as f:
         for s in sorted(senhas):
             f.write(s + '\n')
             
-    print(f'[+] Wordlist Kriol gerada com {len(senhas)} combinações únicas (Nível Root). Salvo em {output_file}')
+    print(f'[+] Wordlist Extrema gerada com {len(senhas)} combinações únicas (Palavrões inclusos). Salvo em {output_file}')
 
 if __name__ == '__main__':
     gerar_wordlist_avancada()
